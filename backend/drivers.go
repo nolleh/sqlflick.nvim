@@ -1,0 +1,293 @@
+package main
+
+import (
+	"context"
+	"database/sql"
+	"fmt"
+	"strings"
+
+	_ "github.com/go-sql-driver/mysql"
+	_ "github.com/lib/pq"
+	_ "github.com/mattn/go-sqlite3"
+	"github.com/redis/go-redis/v9"
+)
+
+// DatabaseDriver interface defines methods for database operations
+type DatabaseDriver interface {
+	Connect(config Config) error
+	Query(query string) (QueryResult, error)
+	Close() error
+}
+
+// Config holds database connection configuration
+type Config struct {
+	Host     string `json:"host"`
+	Port     int    `json:"port"`
+	User     string `json:"user"`
+	Password string `json:"password"`
+	DBName   string `json:"dbname"`
+}
+
+// PostgresDriver implements DatabaseDriver for PostgreSQL
+type PostgresDriver struct {
+	db *sql.DB
+}
+
+func (d *PostgresDriver) Connect(config Config) error {
+	connStr := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable",
+		config.Host, config.Port, config.User, config.Password, config.DBName)
+	db, err := sql.Open("postgres", connStr)
+	if err != nil {
+		return err
+	}
+	d.db = db
+	return nil
+}
+
+func (d *PostgresDriver) Query(query string) (QueryResult, error) {
+	return executeSQLQuery(d.db, query)
+}
+
+func (d *PostgresDriver) Close() error {
+	return d.db.Close()
+}
+
+// MySQLDriver implements DatabaseDriver for MySQL
+type MySQLDriver struct {
+	db *sql.DB
+}
+
+func (d *MySQLDriver) Connect(config Config) error {
+	connStr := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s",
+		config.User, config.Password, config.Host, config.Port, config.DBName)
+	db, err := sql.Open("mysql", connStr)
+	if err != nil {
+		return err
+	}
+	d.db = db
+	return nil
+}
+
+func (d *MySQLDriver) Query(query string) (QueryResult, error) {
+	return executeSQLQuery(d.db, query)
+}
+
+func (d *MySQLDriver) Close() error {
+	return d.db.Close()
+}
+
+// SQLiteDriver implements DatabaseDriver for SQLite
+type SQLiteDriver struct {
+	db *sql.DB
+}
+
+func (d *SQLiteDriver) Connect(config Config) error {
+	db, err := sql.Open("sqlite3", config.DBName)
+	if err != nil {
+		return err
+	}
+	d.db = db
+	return nil
+}
+
+func (d *SQLiteDriver) Query(query string) (QueryResult, error) {
+	return executeSQLQuery(d.db, query)
+}
+
+func (d *SQLiteDriver) Close() error {
+	return d.db.Close()
+}
+
+// RedisDriver implements DatabaseDriver for Redis
+type RedisDriver struct {
+	client *redis.Client
+	ctx    context.Context
+}
+
+func (d *RedisDriver) Connect(config Config) error {
+	d.ctx = context.Background()
+	d.client = redis.NewClient(&redis.Options{
+		Addr:     fmt.Sprintf("%s:%d", config.Host, config.Port),
+		Password: config.Password,
+		DB:       0,
+	})
+	return nil
+}
+
+func (d *RedisDriver) Query(query string) (QueryResult, error) {
+	// Parse Redis command
+	cmd, err := parseRedisCmd(query)
+	if err != nil {
+		return QueryResult{}, err
+	}
+
+	// Execute command
+	response, err := d.client.Do(d.ctx, cmd...).Result()
+	if err != nil {
+		return QueryResult{}, err
+	}
+
+	// Convert response to QueryResult
+	return redisResponseToQueryResult(response)
+}
+
+func (d *RedisDriver) Close() error {
+	return d.client.Close()
+}
+
+// Helper function to execute SQL queries
+func executeSQLQuery(db *sql.DB, query string) (QueryResult, error) {
+	rows, err := db.Query(query)
+	if err != nil {
+		return QueryResult{}, err
+	}
+	defer rows.Close()
+
+	columns, err := rows.Columns()
+	if err != nil {
+		return QueryResult{}, err
+	}
+
+	result := QueryResult{
+		Columns: columns,
+		Rows:    make([][]interface{}, 0),
+	}
+
+	for rows.Next() {
+		values := make([]interface{}, len(columns))
+		valuePtrs := make([]interface{}, len(columns))
+		for i := range values {
+			valuePtrs[i] = &values[i]
+		}
+
+		if err := rows.Scan(valuePtrs...); err != nil {
+			return QueryResult{}, err
+		}
+
+		result.Rows = append(result.Rows, values)
+	}
+
+	if err := rows.Err(); err != nil {
+		return QueryResult{}, err
+	}
+
+	return result, nil
+}
+
+// parseRedisCmd parses string command into args for redis.Do
+func parseRedisCmd(unparsed string) ([]any, error) {
+	// error helper
+	quoteErr := func(quote rune, position int) error {
+		if quote == '"' {
+			return fmt.Errorf("syntax error: unmatched double quote at: %d", position)
+		} else {
+			return fmt.Errorf("syntax error: unmatched single quote at: %d", position)
+		}
+	}
+
+	// return array
+	var fields []any
+	// what char is the current quote
+	var blank rune
+	var currentQuote struct {
+		char     rune
+		position int
+	}
+	// is the current char escaped or not?
+	var escaped bool
+
+	sb := &strings.Builder{}
+	for i, r := range unparsed {
+		// handle unescaped quotes
+		if !escaped && (r == '"' || r == '\'') {
+			// next char
+			next := byte(' ')
+			if i < len(unparsed)-1 {
+				next = unparsed[i+1]
+			}
+
+			if r == currentQuote.char {
+				if next != ' ' {
+					return nil, quoteErr(r, i+1)
+				}
+				// end quote
+				currentQuote.char = blank
+				continue
+			} else if currentQuote.char == blank {
+				// start quote
+				currentQuote.char = r
+				currentQuote.position = i + 1
+				continue
+			}
+		}
+
+		// handle escapes
+		if r == '\\' {
+			escaped = true
+			continue
+		}
+
+		// handle word end
+		if currentQuote.char == blank && r == ' ' {
+			fields = append(fields, sb.String())
+			sb.Reset()
+			continue
+		}
+
+		escaped = false
+		sb.WriteRune(r)
+	}
+
+	// check if quote is not closed
+	if currentQuote.char != blank {
+		return nil, quoteErr(currentQuote.char, currentQuote.position)
+	}
+
+	// write last word
+	if sb.Len() > 0 {
+		fields = append(fields, sb.String())
+	}
+
+	return fields, nil
+}
+
+// redisResponseToQueryResult converts Redis response to QueryResult
+func redisResponseToQueryResult(response any) (QueryResult, error) {
+	switch resp := response.(type) {
+	case string:
+		return QueryResult{
+			Columns: []string{"value"},
+			Rows:    [][]interface{}{{resp}},
+		}, nil
+	case int64:
+		return QueryResult{
+			Columns: []string{"value"},
+			Rows:    [][]interface{}{{resp}},
+		}, nil
+	case []interface{}:
+		// Handle array responses
+		rows := make([][]interface{}, len(resp))
+		for i, v := range resp {
+			rows[i] = []interface{}{v}
+		}
+		return QueryResult{
+			Columns: []string{"value"},
+			Rows:    rows,
+		}, nil
+	case map[interface{}]interface{}:
+		// Handle hash responses
+		rows := make([][]interface{}, 0, len(resp))
+		for k, v := range resp {
+			rows = append(rows, []interface{}{k, v})
+		}
+		return QueryResult{
+			Columns: []string{"key", "value"},
+			Rows:    rows,
+		}, nil
+	default:
+		return QueryResult{
+			Columns: []string{"value"},
+			Rows:    [][]interface{}{{fmt.Sprintf("%v", resp)}},
+		}, nil
+	}
+}
