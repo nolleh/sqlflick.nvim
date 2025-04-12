@@ -87,66 +87,75 @@ local function show_database_selector()
 	end
 
 	vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
-	vim.api.nvim_buf_set_option(buf, "modifiable", false)
 
-	-- Hide cursor
+	-- Hide cursor completely
 	vim.api.nvim_win_set_option(win, "cursorline", false)
 	vim.api.nvim_win_set_option(win, "cursorcolumn", false)
+	vim.api.nvim_win_set_option(win, "number", false)
+	vim.api.nvim_win_set_option(win, "relativenumber", false)
+	vim.api.nvim_win_set_option(win, "signcolumn", "no")
+	vim.api.nvim_win_set_option(win, "wrap", false)
+
+	local current_line = 1
 
 	-- Add arrow indicator
-	local function update_arrow_indicator(buf, current_line)
-		local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
-		for i, line in ipairs(lines) do
-			if i == current_line then
-				lines[i] = "→ " .. line:sub(3)
-			else
-				lines[i] = "  " .. line:sub(3)
-			end
+	local function update_arrow_indicator(line)
+		if not vim.api.nvim_buf_is_valid(buf) then
+			return
 		end
 		vim.api.nvim_buf_set_option(buf, "modifiable", true)
+		local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+		for i, content in ipairs(lines) do
+			if i == line then
+				lines[i] = "→ " .. content:gsub("^→%s*", ""):gsub("^%s*", "")
+			else
+				lines[i] = "  " .. content:gsub("^→%s*", ""):gsub("^%s*", "")
+			end
+		end
 		vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
 		vim.api.nvim_buf_set_option(buf, "modifiable", false)
+		current_line = line
 	end
-	-- Set keymaps
-	local opts = { noremap = true, silent = true }
-	vim.api.nvim_buf_set_keymap(buf, "n", "q", ":q<CR>", opts)
-	vim.keymap.set("n", "j", function()
-		local line = vim.api.nvim_win_get_cursor(0)[1]
-		if line < #lines then
-			vim.api.nvim_win_set_cursor(0, { line + 1, 0 })
-			update_arrow_indicator(buf, line + 1)
-		end
-	end, opts)
-	vim.keymap.set("n", "k", function()
-		local line = vim.api.nvim_win_get_cursor(0)[1]
-		if line > 1 then
-			vim.api.nvim_win_set_cursor(0, { line - 1, 0 })
-			update_arrow_indicator(buf, line - 1)
-		end
-	end, opts)
-	vim.keymap.set("n", "<CR>", function()
-		local line = vim.api.nvim_win_get_cursor(0)[1]
-		if line > 1 and line <= #M.config.databases + 1 then
-			local selected_db = M.config.databases[line - 1]
-			M.selected_database = selected_db
-			vim.api.nvim_win_close(0, true)
-		end
-	end, { noremap = true, silent = true })
-
-	-- Disable other navigation keys
-	vim.api.nvim_buf_set_keymap(buf, "n", "h", "<Nop>", opts)
-	vim.api.nvim_buf_set_keymap(buf, "n", "l", "<Nop>", opts)
-	vim.api.nvim_buf_set_keymap(buf, "n", "w", "<Nop>", opts)
-	vim.api.nvim_buf_set_keymap(buf, "n", "b", "<Nop>", opts)
-	vim.api.nvim_buf_set_keymap(buf, "n", "0", "<Nop>", opts)
-	vim.api.nvim_buf_set_keymap(buf, "n", "$", "<Nop>", opts)
-	vim.api.nvim_buf_set_keymap(buf, "n", "gg", "<Nop>", opts)
-	vim.api.nvim_buf_set_keymap(buf, "n", "G", "<Nop>", opts)
 
 	-- Initialize arrow indicator
-	update_arrow_indicator(buf, 1)
+	update_arrow_indicator(1)
 
-	-- Return the buffer and window for further manipulation
+	-- Set keymaps using vim.keymap.set
+	local opts = { buffer = buf, silent = true }
+
+	-- Navigation keys
+	vim.keymap.set("n", "j", function()
+		if current_line < #lines then
+			current_line = current_line + 1
+			update_arrow_indicator(current_line)
+		end
+	end, opts)
+
+	vim.keymap.set("n", "k", function()
+		if current_line > 1 then
+			current_line = current_line - 1
+			update_arrow_indicator(current_line)
+		end
+	end, opts)
+
+	-- Selection and quit
+	vim.keymap.set("n", "<CR>", function()
+		if current_line > 1 then
+			M.selected_database = M.config.databases[current_line - 1]
+			vim.api.nvim_win_close(win, true)
+		end
+	end, opts)
+
+	vim.keymap.set("n", "q", function()
+		vim.api.nvim_win_close(win, true)
+	end, opts)
+
+	-- Block unwanted keys
+	local keys_to_block = { "h", "l", "w", "b", "e", "0", "$", "gg", "G", "i", "a", "o", "O", "x", "d", "y", "p" }
+	for _, key in ipairs(keys_to_block) do
+		vim.keymap.set("n", key, "<Nop>", opts)
+	end
+
 	return buf, win
 end
 
