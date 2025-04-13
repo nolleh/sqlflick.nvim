@@ -89,12 +89,12 @@ local function show_database_selector()
 	vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
 
 	-- Hide cursor completely
-	vim.api.nvim_win_set_option(win, "cursorline", false)
-	vim.api.nvim_win_set_option(win, "cursorcolumn", false)
-	vim.api.nvim_win_set_option(win, "number", false)
-	vim.api.nvim_win_set_option(win, "relativenumber", false)
-	vim.api.nvim_win_set_option(win, "signcolumn", "no")
-	vim.api.nvim_win_set_option(win, "wrap", false)
+	vim.api.nvim_set_option_value("cursorline", false, { win = win })
+	vim.api.nvim_set_option_value("cursorcolumn", false, { win = win })
+	vim.api.nvim_set_option_value("number", false, { win = win })
+	vim.api.nvim_set_option_value("relativenumber", false, { win = win })
+	vim.api.nvim_set_option_value("signcolumn", "no", { win = win })
+	vim.api.nvim_set_option_value("wrap", false, { win = win })
 
 	local current_line = 1
 
@@ -103,7 +103,7 @@ local function show_database_selector()
 		if not vim.api.nvim_buf_is_valid(buf) then
 			return
 		end
-		vim.api.nvim_buf_set_option(buf, "modifiable", true)
+		vim.api.nvim_set_option_value("modifiable", true, { buf = buf })
 		local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
 		for i, content in ipairs(lines) do
 			if i == line then
@@ -113,7 +113,7 @@ local function show_database_selector()
 			end
 		end
 		vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
-		vim.api.nvim_buf_set_option(buf, "modifiable", false)
+		vim.api.nvim_set_option_value("modifiable", false, { buf = buf })
 		current_line = line
 	end
 
