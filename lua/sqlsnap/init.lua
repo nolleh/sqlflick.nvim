@@ -8,20 +8,6 @@ local query = require("sqlsnap.query")
 local debug = require("sqlsnap.debug")
 local highlights = require("sqlsnap.highlights")
 
--- Tree node structure for hierarchical navigation
-local TreeNode = {}
-function TreeNode.new(name, is_category, db_config, parent)
-	return {
-		name = name,
-		is_category = is_category,
-		db_config = db_config,
-		parent = parent,
-		children = {},
-		expanded = false,
-		depth = parent and (parent.depth + 1) or 0,
-	}
-end
-
 -- Show database selection
 local function show_database_selector()
 	local search_buf, search_win, list_buf, list_win, preview_buf, preview_win = preview.create_preview_window(config.opts)
