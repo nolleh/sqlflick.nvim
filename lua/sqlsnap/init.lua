@@ -255,18 +255,18 @@ local function show_database_selector()
 	vim.api.nvim_set_option_value("wrap", false, { win = list_win })
 
 	-- Set up search input handling
-	vim.api.nvim_create_autocmd("TextChanged", {
-		buffer = search_buf,
-		callback = function()
-			search_term = vim.api.nvim_buf_get_lines(search_buf, 0, 1, false)[1]
-			items = render_tree()
-			if #items > 0 then
-				current_line = 1
-				vim.api.nvim_win_set_cursor(list_win, { current_line, 0 })
-				update_preview_content(items, current_line)
-			end
-		end,
-	})
+	-- vim.api.nvim_create_autocmd("TextChanged", {
+	-- 	buffer = search_buf,
+	-- 	callback = function()
+	-- 		search_term = vim.api.nvim_buf_get_lines(search_buf, 0, 1, false)[1]
+	-- 		items = render_tree()
+	-- 		if #items > 0 then
+	-- 			current_line = 1
+	-- 			vim.api.nvim_win_set_cursor(list_win, { current_line, 0 })
+	-- 			update_preview_content(items, current_line)
+	-- 		end
+	-- 	end,
+	-- })
 
 	vim.api.nvim_create_autocmd("TextChangedI", {
 		buffer = search_buf,
@@ -280,6 +280,26 @@ local function show_database_selector()
 			end
 		end,
 	})
+
+	-- Handle focus movement when exiting insert mode in search
+	vim.api.nvim_create_autocmd("InsertLeave", {
+		buffer = search_buf,
+		callback = function()
+			vim.api.nvim_set_current_win(list_win)
+		end,
+	})
+
+	-- Add keymap to return to search
+	vim.keymap.set("n", "/", function()
+		vim.api.nvim_set_current_win(search_win)
+		vim.cmd("startinsert")
+	end, { buffer = list_buf, silent = true })
+
+	-- Add 'i' keymap to also enter search mode
+	vim.keymap.set("n", "i", function()
+		vim.api.nvim_set_current_win(search_win)
+		vim.cmd("startinsert")
+	end, { buffer = list_buf, silent = true })
 
 	-- Set keymaps
 	local opts = { buffer = list_buf, silent = true }
