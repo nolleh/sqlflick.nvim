@@ -86,51 +86,109 @@ local function create_preview_window()
 	return list_buf, list_win, preview_buf, preview_win
 end
 
+-- Tree node structure for hierarchical navigation
+local TreeNode = {}
+function TreeNode.new(name, is_category, db_config, parent)
+	return {
+		name = name,
+		is_category = is_category,
+		db_config = db_config,
+		parent = parent,
+		children = {},
+		expanded = false,
+		depth = parent and (parent.depth + 1) or 0
+	}
+end
+
+-- Build tree structure from databases config
+local function build_tree(databases)
+	local root = TreeNode.new("root", true, nil, nil)
+	root.expanded = true
+
+	-- First pass: Create category nodes
+	for key, value in pairs(databases) do
+		if type(key) == "string" then
+			-- This is a category
+			local category = TreeNode.new(key, true, nil, root)
+			root.children[#root.children + 1] = category
+			
+			-- Add databases under this category
+			for _, db in ipairs(value) do
+				local db_node = TreeNode.new(db.name, false, db, category)
+				category.children[#category.children + 1] = db_node
+			end
+		elseif type(key) == "number" then
+			-- This is a direct database entry
+			local db = value
+			local db_node = TreeNode.new(db.name, false, db, root)
+			root.children[#root.children + 1] = db_node
+		end
+	end
+
+	return root
+end
+
+-- Flatten tree to visible items
+local function get_visible_items(root)
+	local items = {}
+	local function traverse(node)
+		if node ~= root then  -- Skip root node
+			items[#items + 1] = node
+		end
+		if node.expanded and node.children then
+			for _, child in ipairs(node.children) do
+				traverse(child)
+			end
+		end
+	end
+	traverse(root)
+	return items
+end
+
 -- Show database selection
 local function show_database_selector()
 	local list_buf, list_win, preview_buf, preview_win = create_preview_window()
 
-	-- Set buffer options for list
+	-- Set buffer options
 	vim.api.nvim_set_option_value("modifiable", true, { buf = list_buf })
 	vim.api.nvim_set_option_value("buftype", "nofile", { buf = list_buf })
 	vim.api.nvim_set_option_value("filetype", "sqlsnap", { buf = list_buf })
 
-	-- Set buffer options for preview
-	vim.api.nvim_set_option_value("modifiable", true, { buf = preview_buf })
-	vim.api.nvim_set_option_value("buftype", "nofile", { buf = preview_buf })
-	vim.api.nvim_set_option_value("filetype", "sqlsnap", { buf = preview_buf })
-
-	-- Add database options to list buffer
-	local lines = {}
-	for _, db in ipairs(M.config.databases) do
-		table.insert(lines, db.name)
-	end
-
-	vim.api.nvim_buf_set_lines(list_buf, 0, -1, false, lines)
-
-	-- Set window options for list
-	vim.api.nvim_set_option_value("cursorline", true, { win = list_win })
-	vim.api.nvim_set_option_value("number", false, { win = list_win })
-	vim.api.nvim_set_option_value("relativenumber", false, { win = list_win })
-	vim.api.nvim_set_option_value("signcolumn", "no", { win = list_win })
-	vim.api.nvim_set_option_value("wrap", false, { win = list_win })
-
-	-- Set window options for preview
-	vim.api.nvim_set_option_value("cursorline", false, { win = preview_win })
-	vim.api.nvim_set_option_value("number", false, { win = preview_win })
-	vim.api.nvim_set_option_value("relativenumber", false, { win = preview_win })
-	vim.api.nvim_set_option_value("signcolumn", "no", { win = preview_win })
-	vim.api.nvim_set_option_value("wrap", true, { win = preview_win })
-
+	-- Build tree structure
+	local root = build_tree(M.config.databases)
 	local current_line = 1
 
+	-- Function to render tree
+	local function render_tree()
+		local items = get_visible_items(root)
+		local lines = {}
+		for _, item in ipairs(items) do
+			local prefix = string.rep("  ", item.depth)
+			if item.is_category then
+				prefix = prefix .. (item.expanded and "▼ " or "▶ ")
+			else
+				prefix = prefix .. "  "
+			end
+			lines[#lines + 1] = prefix .. item.name
+		end
+		
+		vim.api.nvim_set_option_value("modifiable", true, { buf = list_buf })
+		vim.api.nvim_buf_set_lines(list_buf, 0, -1, false, lines)
+		vim.api.nvim_set_option_value("modifiable", false, { buf = list_buf })
+		
+		return items
+	end
+
 	-- Function to update preview content
-	local function update_preview_content(idx)
-		if idx < 1 or idx > #M.config.databases then
+	local function update_preview_content(items, idx)
+		if not items[idx] or items[idx].is_category then
+			vim.api.nvim_set_option_value("modifiable", true, { buf = preview_buf })
+			vim.api.nvim_buf_set_lines(preview_buf, 0, -1, false, {})
+			vim.api.nvim_set_option_value("modifiable", false, { buf = preview_buf })
 			return
 		end
 
-		local db = M.config.databases[idx]
+		local db = items[idx].db_config
 		local preview_lines = {
 			"Database Configuration:",
 			"",
@@ -147,46 +205,89 @@ local function show_database_selector()
 		vim.api.nvim_set_option_value("modifiable", false, { buf = preview_buf })
 	end
 
-	-- Initialize preview content
-	update_preview_content(1)
+	-- Initial render
+	local items = render_tree()
+	update_preview_content(items, current_line)
 
-	-- Set keymaps using vim.keymap.set
+	-- Set window options
+	vim.api.nvim_set_option_value("cursorline", true, { win = list_win })
+	vim.api.nvim_set_option_value("number", false, { win = list_win })
+	vim.api.nvim_set_option_value("relativenumber", false, { win = list_win })
+	vim.api.nvim_set_option_value("signcolumn", "no", { win = list_win })
+	vim.api.nvim_set_option_value("wrap", false, { win = list_win })
+
+	-- Set keymaps
 	local opts = { buffer = list_buf, silent = true }
 
 	-- Navigation keys
 	vim.keymap.set("n", "j", function()
-		if current_line < #lines then
+		local items = get_visible_items(root)
+		if current_line < #items then
 			current_line = current_line + 1
-			vim.api.nvim_win_set_cursor(list_win, { current_line, 0 })
-			update_preview_content(current_line)
+			vim.api.nvim_win_set_cursor(list_win, {current_line, 0})
+			update_preview_content(items, current_line)
 		end
 	end, opts)
 
 	vim.keymap.set("n", "k", function()
 		if current_line > 1 then
 			current_line = current_line - 1
-			vim.api.nvim_win_set_cursor(list_win, { current_line, 0 })
-			update_preview_content(current_line)
+			vim.api.nvim_win_set_cursor(list_win, {current_line, 0})
+			local items = get_visible_items(root)
+			update_preview_content(items, current_line)
+		end
+	end, opts)
+
+	-- Expand/Collapse keys
+	vim.keymap.set("n", "l", function()
+		local items = get_visible_items(root)
+		local item = items[current_line]
+		if item and item.is_category and not item.expanded then
+			item.expanded = true
+			items = render_tree()
+			vim.api.nvim_win_set_cursor(list_win, {current_line, 0})
+			update_preview_content(items, current_line)
+		end
+	end, opts)
+
+	vim.keymap.set("n", "h", function()
+		local items = get_visible_items(root)
+		local item = items[current_line]
+		if item and item.is_category and item.expanded then
+			item.expanded = false
+			items = render_tree()
+			vim.api.nvim_win_set_cursor(list_win, {current_line, 0})
+			update_preview_content(items, current_line)
+		elseif item and item.parent and item.parent ~= root then
+			-- Find parent's index
+			for i, node in ipairs(items) do
+				if node == item.parent then
+					current_line = i
+					break
+				end
+			end
+			item.parent.expanded = false
+			items = render_tree()
+			vim.api.nvim_win_set_cursor(list_win, {current_line, 0})
+			update_preview_content(items, current_line)
 		end
 	end, opts)
 
 	-- Selection and quit
 	vim.keymap.set("n", "<CR>", function()
-		M.selected_database = M.config.databases[current_line]
-		vim.api.nvim_win_close(preview_win, true)
-		vim.api.nvim_win_close(list_win, true)
+		local items = get_visible_items(root)
+		local item = items[current_line]
+		if item and not item.is_category then
+			M.selected_database = item.db_config
+			vim.api.nvim_win_close(preview_win, true)
+			vim.api.nvim_win_close(list_win, true)
+		end
 	end, opts)
 
 	vim.keymap.set("n", "q", function()
 		vim.api.nvim_win_close(preview_win, true)
 		vim.api.nvim_win_close(list_win, true)
 	end, opts)
-
-	-- Block unwanted keys
-	local keys_to_block = { "h", "l", "w", "b", "e", "0", "$", "gg", "G", "i", "a", "o", "O", "x", "d", "y", "p" }
-	for _, key in ipairs(keys_to_block) do
-		vim.keymap.set("n", key, "<Nop>", opts)
-	end
 
 	return list_buf, list_win, preview_buf, preview_win
 end
