@@ -76,9 +76,9 @@ local function show_database_selector()
 	local buf, win = create_preview_window()
 
 	-- Set buffer options
-	vim.api.nvim_buf_set_option(buf, "modifiable", true)
-	vim.api.nvim_buf_set_option(buf, "buftype", "nofile")
-	vim.api.nvim_buf_set_option(buf, "filetype", "sqlsnap")
+	vim.api.nvim_set_option_value("modifiable", true, { buf = buf })
+	vim.api.nvim_set_option_value("buftype", "nofile", { buf = buf })
+	vim.api.nvim_set_option_value("filetype", "sqlsnap", { buf = buf })
 
 	-- Add database options
 	local lines = { "Select a database:" }
@@ -227,8 +227,8 @@ function M.setup(opts)
 		if result then
 			-- Create a new buffer to show results
 			local buf = vim.api.nvim_create_buf(false, true)
-			vim.api.nvim_buf_set_option(buf, "buftype", "nofile")
-			vim.api.nvim_buf_set_option(buf, "filetype", "sqlsnap")
+			vim.api.nvim_set_option_value("buftype", "nofile", { buf = buf })
+			vim.api.nvim_set_option_value("filetype", "sqlsnap", { buf = buf })
 
 			-- Format and display results
 			local lines = {}
