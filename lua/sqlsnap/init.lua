@@ -419,6 +419,80 @@ local function execute_query(query, db_config)
 	return result
 end
 
+-- Create debug window with tabs
+local function create_debug_window()
+	-- Create new buffer
+	local buf = vim.api.nvim_create_buf(false, true)
+
+	-- Split the window vertically on the right side
+	vim.cmd("vsplit")
+	vim.cmd("wincmd L") -- Move to the rightmost window
+	local win = vim.api.nvim_get_current_win()
+	vim.api.nvim_win_set_buf(win, buf)
+
+	-- Set window options
+	vim.api.nvim_set_option_value("number", true, { win = win })
+	vim.api.nvim_set_option_value("relativenumber", false, { win = win })
+	vim.api.nvim_set_option_value("wrap", false, { win = win })
+	vim.api.nvim_set_option_value("signcolumn", "no", { win = win })
+
+	-- Create tab line
+	local tab_line = "Results"
+	vim.api.nvim_buf_set_lines(buf, 0, 1, false, { tab_line })
+
+	-- Highlight tab line
+	vim.api.nvim_buf_add_highlight(buf, -1, "TabLineSel", 0, 0, #tab_line)
+
+	-- Add keymaps
+	local opts = { buffer = buf, noremap = true, silent = true }
+	vim.keymap.set("n", "q", function()
+		-- Return to previous window before closing
+		vim.cmd("wincmd p")
+		vim.api.nvim_win_close(win, true)
+	end, opts)
+
+	return buf, win
+end
+
+-- Format query results as a table
+local function format_query_results(result)
+	if not result or not result.columns or not result.rows then
+		return { "No results" }
+	end
+
+	-- Calculate column widths
+	local col_widths = {}
+	for i, col in ipairs(result.columns) do
+		col_widths[i] = #col
+		for _, row in ipairs(result.rows) do
+			local val = tostring(row[i] or "")
+			col_widths[i] = math.max(col_widths[i], #val)
+		end
+	end
+
+	-- Format header
+	local lines = {}
+	local header = "| "
+	local separator = "|-"
+	for i, col in ipairs(result.columns) do
+		header = header .. string.format("%-" .. col_widths[i] .. "s | ", col)
+		separator = separator .. string.rep("-", col_widths[i]) .. "-|-"
+	end
+	table.insert(lines, header)
+	table.insert(lines, separator)
+
+	-- Format rows
+	for _, row in ipairs(result.rows) do
+		local line = "| "
+		for i, val in ipairs(row) do
+			line = line .. string.format("%-" .. col_widths[i] .. "s | ", tostring(val or ""))
+		end
+		table.insert(lines, line)
+	end
+
+	return lines
+end
+
 -- Setup function that will be called by users
 function M.setup(opts)
 	M.config = vim.tbl_deep_extend("force", M.config, opts or {})
@@ -456,34 +530,30 @@ function M.setup(opts)
 		local result = execute_query(query, db)
 
 		if result then
-			-- Create a new buffer to show results
-			local buf = vim.api.nvim_create_buf(false, true)
-			vim.api.nvim_set_option_value("buftype", "nofile", { buf = buf })
-			vim.api.nvim_set_option_value("filetype", "sqlsnap", { buf = buf })
-
-			-- Format and display results
-			local lines = {}
-			table.insert(lines, "Query Results:")
-			table.insert(lines, table.concat(result.columns, " | "))
-			table.insert(lines, string.rep("-", 80))
-			for _, row in ipairs(result.rows) do
-				local row_str = {}
-				for _, value in ipairs(row) do
-					table.insert(row_str, tostring(value))
-				end
-				table.insert(lines, table.concat(row_str, " | "))
+			-- If debug window exists, reuse it
+			if M.debug_win and vim.api.nvim_win_is_valid(M.debug_win) then
+				vim.api.nvim_set_current_win(M.debug_win)
+				vim.api.nvim_set_option_value("modifiable", true, { buf = M.debug_buf })
+				vim.api.nvim_buf_set_lines(M.debug_buf, 1, -1, false, {})
+			else
+				-- Create new debug window
+				local buf, win = create_debug_window()
+				M.debug_buf = buf
+				M.debug_win = win
 			end
 
-			vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
-			vim.api.nvim_open_win(buf, true, {
-				relative = "editor",
-				width = 80,
-				height = 20,
-				col = (vim.o.columns - 80) / 2,
-				row = (vim.o.lines - 20) / 2,
-				style = "minimal",
-				border = "rounded",
-			})
+			-- Format and display results
+			local lines = format_query_results(result)
+
+			-- Set buffer content
+			vim.api.nvim_set_option_value("modifiable", true, { buf = M.debug_buf })
+			vim.api.nvim_buf_set_lines(M.debug_buf, 1, -1, false, lines)
+			vim.api.nvim_set_option_value("modifiable", false, { buf = M.debug_buf })
+
+			-- Set buffer options
+			vim.api.nvim_set_option_value("buftype", "nofile", { buf = M.debug_buf })
+			vim.api.nvim_set_option_value("bufhidden", "wipe", { buf = M.debug_buf })
+			vim.api.nvim_set_option_value("filetype", "sqlsnap", { buf = M.debug_buf })
 		end
 	end, { nargs = 1 })
 end
