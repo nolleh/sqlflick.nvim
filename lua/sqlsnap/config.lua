@@ -28,18 +28,18 @@ M.default_config = {
 		--     type = "sqlite",
 		--     database = "/path/to/database.db"
 		-- },
-		{
-			name = "local_redis",
-			type = "redis",
-			host = "localhost",
-			port = 6379,
-			password = "pass",
-		},
+		-- {
+		-- 	name = "local_redis",
+		-- 	type = "redis",
+		-- 	host = "localhost",
+		-- 	port = 6379,
+		-- 	password = "pass",
+		-- },
 	},
 	-- Preview window settings
 	preview = {
-		width = 50,
-		height = 10,
+		width = 60,
+		height = 15,
 		border = "rounded",
 	},
 	-- Backend settings

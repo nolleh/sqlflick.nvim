@@ -72,7 +72,7 @@ sqlsnap.setup({
 	},
 	preview = {
 		width = 60,
-		height = 15,
+		height = 20,
 		border = "rounded",
 	},
 })

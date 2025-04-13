@@ -21,3 +21,43 @@ SQLSnapTabLineFill: For the tab line separator
 SQLSnapHeader: For table headers (blue-ish color)
 SQLSnapHeaderSep: For table borders and separators
 SQLSnapCell: For table data cells
+
+## Configuration
+
+Default configuration:
+
+```lua
+{
+    enabled = true,
+}
+```
+
+## Features
+
+- Basic SQL query management (coming soon)
+- More features to be added...
+
+## License
+
+MIT
+
+## develop
+
+```
+ln -sf "$(pwd)" ~/.config/nvim/lua/plugins/sqlsnap
+nvim -c  "luafile test.lua"
+
+```
+
+```lua
+
+   {
+       dir = "~/.config/nvim/lua/plugins/sqlsnap",
+       config = function()
+           require("sqlsnap").setup({
+               enabled = true,
+           })
+       end
+   }
+
+```
