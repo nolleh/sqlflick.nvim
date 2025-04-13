@@ -58,12 +58,14 @@ local function create_preview_window()
 
 	-- Create list buffer and window (left pane)
 	local list_buf = vim.api.nvim_create_buf(false, true)
-	local win_width = math.floor(vim.o.columns * 0.3) -- 30% of screen width for list
+	-- local win_width = math.floor(vim.o.columns * 0.3) -- 30% of screen width for list
+	local win_width = math.floor(width * 0.3)
+	local x_offset = (vim.o.columns - width) / 2
 	local list_win = vim.api.nvim_open_win(list_buf, true, {
 		relative = "editor",
 		width = win_width,
 		height = height,
-		col = 0,
+		col = x_offset,
 		row = (vim.o.lines - height) / 2,
 		style = "minimal",
 		border = border,
@@ -75,7 +77,7 @@ local function create_preview_window()
 		relative = "editor",
 		width = width - win_width - 2, -- Remaining width minus borders
 		height = height,
-		col = win_width + 2,
+		col = x_offset + win_width + 2,
 		row = (vim.o.lines - height) / 2,
 		style = "minimal",
 		border = border,
@@ -127,7 +129,7 @@ local function show_database_selector()
 		if idx < 1 or idx > #M.config.databases then
 			return
 		end
-		
+
 		local db = M.config.databases[idx]
 		local preview_lines = {
 			"Database Configuration:",
@@ -139,7 +141,7 @@ local function show_database_selector()
 			"Database: " .. (db.database or "N/A"),
 			"Username: " .. (db.username or "N/A"),
 		}
-		
+
 		vim.api.nvim_set_option_value("modifiable", true, { buf = preview_buf })
 		vim.api.nvim_buf_set_lines(preview_buf, 0, -1, false, preview_lines)
 		vim.api.nvim_set_option_value("modifiable", false, { buf = preview_buf })
@@ -155,7 +157,7 @@ local function show_database_selector()
 	vim.keymap.set("n", "j", function()
 		if current_line < #lines then
 			current_line = current_line + 1
-			vim.api.nvim_win_set_cursor(list_win, {current_line, 0})
+			vim.api.nvim_win_set_cursor(list_win, { current_line, 0 })
 			update_preview_content(current_line)
 		end
 	end, opts)
@@ -163,7 +165,7 @@ local function show_database_selector()
 	vim.keymap.set("n", "k", function()
 		if current_line > 1 then
 			current_line = current_line - 1
-			vim.api.nvim_win_set_cursor(list_win, {current_line, 0})
+			vim.api.nvim_win_set_cursor(list_win, { current_line, 0 })
 			update_preview_content(current_line)
 		end
 	end, opts)
