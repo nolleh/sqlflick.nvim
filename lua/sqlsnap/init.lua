@@ -292,13 +292,15 @@ local function show_database_selector()
 	-- Add keymap to return to search
 	vim.keymap.set("n", "/", function()
 		vim.api.nvim_set_current_win(search_win)
-		vim.cmd("startinsert")
+		vim.cmd("$")
+		-- vim.cmd("startinsert")
 	end, { buffer = list_buf, silent = true })
 
 	-- Add 'i' keymap to also enter search mode
 	vim.keymap.set("n", "i", function()
 		vim.api.nvim_set_current_win(search_win)
-		vim.cmd("startinsert")
+		vim.cmd("$")
+		-- vim.cmd("startinsert")
 	end, { buffer = list_buf, silent = true })
 
 	-- Set keymaps
