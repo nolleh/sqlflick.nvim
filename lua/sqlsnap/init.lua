@@ -425,7 +425,7 @@ local function setup_highlights()
 	vim.api.nvim_set_hl(0, "SQLSnapTabLine", { bg = "#3c3836", fg = "#a89984" })
 	vim.api.nvim_set_hl(0, "SQLSnapTabLineSel", { bg = "#504945", fg = "#ebdbb2", bold = true })
 	vim.api.nvim_set_hl(0, "SQLSnapTabLineFill", { bg = "#3c3836" })
-	
+
 	-- Content highlights
 	vim.api.nvim_set_hl(0, "SQLSnapHeader", { fg = "#83a598", bold = true })
 	vim.api.nvim_set_hl(0, "SQLSnapHeaderSep", { fg = "#504945" })
@@ -436,38 +436,38 @@ end
 local function create_debug_window()
 	-- Create new buffer
 	local buf = vim.api.nvim_create_buf(false, true)
-	
+
 	-- Split the window vertically on the right side
 	vim.cmd("vsplit")
 	vim.cmd("wincmd L") -- Move to the rightmost window
 	local win = vim.api.nvim_get_current_win()
 	vim.api.nvim_win_set_buf(win, buf)
-	
+
 	-- Set window options
 	vim.api.nvim_set_option_value("number", true, { win = win })
 	vim.api.nvim_set_option_value("relativenumber", false, { win = win })
 	vim.api.nvim_set_option_value("wrap", false, { win = win })
 	vim.api.nvim_set_option_value("signcolumn", "no", { win = win })
 	vim.api.nvim_set_option_value("winhighlight", "Normal:Normal,FloatBorder:Normal", { win = win })
-	
+
 	-- Create tab line with padding
 	local tab_line = "▎ Results "
 	vim.api.nvim_buf_set_lines(buf, 0, 1, false, { tab_line })
-	
+
 	-- Highlight tab line with custom highlights
 	vim.api.nvim_buf_add_highlight(buf, -1, "SQLSnapTabLineSel", 0, 0, #tab_line)
-	
+
 	-- Add separator line below tab
 	vim.api.nvim_buf_set_lines(buf, 1, 2, false, { string.rep("─", vim.api.nvim_win_get_width(win)) })
 	vim.api.nvim_buf_add_highlight(buf, -1, "SQLSnapTabLineFill", 1, 0, -1)
-	
+
 	-- Add keymaps
 	local opts = { buffer = buf, noremap = true, silent = true }
 	vim.keymap.set("n", "q", function()
 		vim.cmd("wincmd p")
 		vim.api.nvim_win_close(win, true)
 	end, opts)
-	
+
 	return buf, win
 end
 
@@ -476,7 +476,7 @@ local function format_query_results(result)
 	if not result or not result.columns or not result.rows then
 		return { "No results" }
 	end
-	
+
 	-- Calculate column widths
 	local col_widths = {}
 	for i, col in ipairs(result.columns) do
@@ -486,7 +486,7 @@ local function format_query_results(result)
 			col_widths[i] = math.max(col_widths[i], #val)
 		end
 	end
-	
+
 	-- Format header
 	local lines = {}
 	local header = "│ "
@@ -495,15 +495,15 @@ local function format_query_results(result)
 		header = header .. string.format("%-" .. col_widths[i] .. "s │ ", col)
 		separator = separator .. string.rep("─", col_widths[i]) .. "─┼─"
 	end
-	
+
 	-- Replace last ┼ with ┤
 	separator = separator:sub(1, -3) .. "┤"
-	
+
 	-- Add top border
 	table.insert(lines, "┌─" .. string.rep("─", #header - 3) .. "┐")
 	table.insert(lines, header)
 	table.insert(lines, separator)
-	
+
 	-- Format rows
 	for _, row in ipairs(result.rows) do
 		local line = "│ "
@@ -512,20 +512,20 @@ local function format_query_results(result)
 		end
 		table.insert(lines, line)
 	end
-	
+
 	-- Add bottom border
 	table.insert(lines, "└─" .. string.rep("─", #header - 3) .. "┘")
-	
+
 	return lines
 end
 
 -- Setup function that will be called by users
 function M.setup(opts)
 	M.config = vim.tbl_deep_extend("force", M.config, opts or {})
-	
+
 	-- Set up custom highlights
 	setup_highlights()
-	
+
 	-- Basic setup logic here
 	if M.config.enabled then
 		print("SQLSnap plugin is enabled!")
@@ -570,34 +570,28 @@ function M.setup(opts)
 				M.debug_buf = buf
 				M.debug_win = win
 			end
-			
+
 			-- Format and display results
 			local lines = format_query_results(result)
-			
+
 			-- Set buffer content
 			vim.api.nvim_set_option_value("modifiable", true, { buf = M.debug_buf })
 			vim.api.nvim_buf_set_lines(M.debug_buf, 2, -1, false, lines)
 			vim.api.nvim_set_option_value("modifiable", false, { buf = M.debug_buf })
-			
+
 			-- Apply syntax highlighting
 			local ns_id = vim.api.nvim_create_namespace("sqlsnap")
 			for i, line in ipairs(lines) do
 				local row = i + 1 -- Account for tab line and separator
-				if i == 1 or i == #lines then
-					-- Border lines
-					vim.api.nvim_buf_add_highlight(M.debug_buf, ns_id, "SQLSnapHeaderSep", row, 0, -1)
-				elseif i == 2 then
+				if i <= 3 then
 					-- Header line
 					vim.api.nvim_buf_add_highlight(M.debug_buf, ns_id, "SQLSnapHeader", row, 0, -1)
-				elseif i == 3 then
-					-- Separator line
-					vim.api.nvim_buf_add_highlight(M.debug_buf, ns_id, "SQLSnapHeaderSep", row, 0, -1)
 				else
 					-- Data cells
 					vim.api.nvim_buf_add_highlight(M.debug_buf, ns_id, "SQLSnapCell", row, 0, -1)
 				end
 			end
-			
+
 			-- Set buffer options
 			vim.api.nvim_set_option_value("buftype", "nofile", { buf = M.debug_buf })
 			vim.api.nvim_set_option_value("bufhidden", "wipe", { buf = M.debug_buf })
