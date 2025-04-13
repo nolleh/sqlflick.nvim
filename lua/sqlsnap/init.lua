@@ -1,54 +1,62 @@
 local M = {}
 
+-- Import modules
+local config = require("sqlsnap.config")
+local preview = require("sqlsnap.preview")
+local tree = require("sqlsnap.tree")
+local query = require("sqlsnap.query")
+local debug = require("sqlsnap.debug")
+local highlights = require("sqlsnap.highlights")
+
 -- Plugin configuration
-M.config = {
-	-- Default configuration options
-	enabled = true,
-	databases = {
-		-- Example database configurations
-		-- {
-		--     name = "local_postgres",
-		--     type = "postgresql",
-		--     host = "localhost",
-		--     port = 5432,
-		--     database = "mydb",
-		--     username = "user",
-		--     password = "pass"
-		-- },
-		-- {
-		--     name = "local_mysql",
-		--     type = "mysql",
-		--     host = "localhost",
-		--     port = 3306,
-		--     database = "mydb",
-		--     username = "user",
-		--     password = "pass"
-		-- },
-		-- {
-		--     name = "local_sqlite",
-		--     type = "sqlite",
-		--     database = "/path/to/database.db"
-		-- },
-		{
-			name = "local_redis",
-			type = "redis",
-			host = "localhost",
-			port = 6379,
-			password = "pass",
-		},
-	},
-	-- Preview window settings
-	preview = {
-		width = 50,
-		height = 10,
-		border = "rounded",
-	},
-	-- Backend settings
-	backend = {
-		host = "localhost",
-		port = 8080,
-	},
-}
+-- M.config = {
+-- 	-- Default configuration options
+-- 	enabled = true,
+-- 	databases = {
+-- 		-- Example database configurations
+-- 		-- {
+-- 		--     name = "local_postgres",
+-- 		--     type = "postgresql",
+-- 		--     host = "localhost",
+-- 		--     port = 5432,
+-- 		--     database = "mydb",
+-- 		--     username = "user",
+-- 		--     password = "pass"
+-- 		-- },
+-- 		-- {
+-- 		--     name = "local_mysql",
+-- 		--     type = "mysql",
+-- 		--     host = "localhost",
+-- 		--     port = 3306,
+-- 		--     database = "mydb",
+-- 		--     username = "user",
+-- 		--     password = "pass"
+-- 		-- },
+-- 		-- {
+-- 		--     name = "local_sqlite",
+-- 		--     type = "sqlite",
+-- 		--     database = "/path/to/database.db"
+-- 		-- },
+-- 		{
+-- 			name = "local_redis",
+-- 			type = "redis",
+-- 			host = "localhost",
+-- 			port = 6379,
+-- 			password = "pass",
+-- 		},
+-- 	},
+-- 	-- Preview window settings
+-- 	preview = {
+-- 		width = 50,
+-- 		height = 10,
+-- 		border = "rounded",
+-- 	},
+-- 	-- Backend settings
+-- 	backend = {
+-- 		host = "localhost",
+-- 		port = 8080,
+-- 	},
+-- }
 
 -- Create a preview window
 local function create_preview_window()
@@ -165,7 +173,7 @@ end
 
 -- Show database selection
 local function show_database_selector()
-	local search_buf, search_win, list_buf, list_win, preview_buf, preview_win = create_preview_window()
+	local search_buf, search_win, list_buf, list_win, preview_buf, preview_win = preview.create_preview_window(config.opts)
 
 	-- Set buffer options
 	vim.api.nvim_set_option_value("modifiable", true, { buf = list_buf })
@@ -177,75 +185,14 @@ local function show_database_selector()
 	vim.api.nvim_set_option_value("buftype", "nofile", { buf = search_buf })
 
 	-- Build tree structure
-	local root = build_tree(M.config.databases)
+	local root = tree.build_tree(config.opts.databases)
 	local current_line = 1
 	local search_term = ""
 
-	-- Function to filter items based on search term
-	local function filter_items(items, term)
-		if term == "" then
-			return items
-		end
-		local filtered = {}
-		for _, item in ipairs(items) do
-			if string.find(string.lower(item.name), string.lower(term)) then
-				filtered[#filtered + 1] = item
-			end
-		end
-		return filtered
-	end
-
-	-- Function to render tree
-	local function render_tree()
-		local items = get_visible_items(root)
-		items = filter_items(items, search_term)
-		local lines = {}
-		for _, item in ipairs(items) do
-			local prefix = string.rep("  ", item.depth)
-			if item.is_category then
-				prefix = prefix .. (item.expanded and "▼ " or "▶ ")
-			else
-				prefix = prefix .. "  "
-			end
-			lines[#lines + 1] = prefix .. item.name
-		end
-
-		vim.api.nvim_set_option_value("modifiable", true, { buf = list_buf })
-		vim.api.nvim_buf_set_lines(list_buf, 0, -1, false, lines)
-		vim.api.nvim_set_option_value("modifiable", false, { buf = list_buf })
-
-		return items
-	end
-
-	-- Function to update preview content
-	local function update_preview_content(items, idx)
-		if not items[idx] or items[idx].is_category then
-			vim.api.nvim_set_option_value("modifiable", true, { buf = preview_buf })
-			vim.api.nvim_buf_set_lines(preview_buf, 0, -1, false, {})
-			vim.api.nvim_set_option_value("modifiable", false, { buf = preview_buf })
-			return
-		end
-
-		local db = items[idx].db_config
-		local preview_lines = {
-			"Database Configuration:",
-			"",
-			"Name: " .. db.name,
-			"Type: " .. db.type,
-			"Host: " .. (db.host or "N/A"),
-			"Port: " .. (db.port or "N/A"),
-			"Database: " .. (db.database or "N/A"),
-			"Username: " .. (db.username or "N/A"),
-		}
-
-		vim.api.nvim_set_option_value("modifiable", true, { buf = preview_buf })
-		vim.api.nvim_buf_set_lines(preview_buf, 0, -1, false, preview_lines)
-		vim.api.nvim_set_option_value("modifiable", false, { buf = preview_buf })
-	end
-
 	-- Initial render
-	local items = render_tree()
-	update_preview_content(items, current_line)
+	local items = tree.get_visible_items(root)
+	preview.render_tree(list_buf, items)
+	preview.update_preview_content(preview_buf, items, current_line)
 
 	-- Set window options
 	vim.api.nvim_set_option_value("cursorline", true, { win = list_win })
@@ -255,28 +202,16 @@ local function show_database_selector()
 	vim.api.nvim_set_option_value("wrap", false, { win = list_win })
 
 	-- Set up search input handling
-	-- vim.api.nvim_create_autocmd("TextChanged", {
-	-- 	buffer = search_buf,
-	-- 	callback = function()
-	-- 		search_term = vim.api.nvim_buf_get_lines(search_buf, 0, 1, false)[1]
-	-- 		items = render_tree()
-	-- 		if #items > 0 then
-	-- 			current_line = 1
-	-- 			vim.api.nvim_win_set_cursor(list_win, { current_line, 0 })
-	-- 			update_preview_content(items, current_line)
-	-- 		end
-	-- 	end,
-	-- })
-
 	vim.api.nvim_create_autocmd("TextChangedI", {
 		buffer = search_buf,
 		callback = function()
 			search_term = vim.api.nvim_buf_get_lines(search_buf, 0, 1, false)[1]
-			items = render_tree()
+			items = tree.filter_items(tree.get_visible_items(root), search_term)
+			preview.render_tree(list_buf, items)
 			if #items > 0 then
 				current_line = 1
 				vim.api.nvim_win_set_cursor(list_win, { current_line, 0 })
-				update_preview_content(items, current_line)
+				preview.update_preview_content(preview_buf, items, current_line)
 			end
 		end,
 	})
@@ -293,14 +228,12 @@ local function show_database_selector()
 	vim.keymap.set("n", "/", function()
 		vim.api.nvim_set_current_win(search_win)
 		vim.cmd("$")
-		-- vim.cmd("startinsert")
 	end, { buffer = list_buf, silent = true })
 
 	-- Add 'i' keymap to also enter search mode
 	vim.keymap.set("n", "i", function()
 		vim.api.nvim_set_current_win(search_win)
 		vim.cmd("$")
-		-- vim.cmd("startinsert")
 	end, { buffer = list_buf, silent = true })
 
 	-- Set keymaps
@@ -308,12 +241,12 @@ local function show_database_selector()
 
 	-- Navigation keys
 	vim.keymap.set("n", "j", function()
-		local items = get_visible_items(root)
-		items = filter_items(items, search_term)
+		local items = tree.get_visible_items(root)
+		items = tree.filter_items(items, search_term)
 		if current_line < #items then
 			current_line = current_line + 1
 			vim.api.nvim_win_set_cursor(list_win, { current_line, 0 })
-			update_preview_content(items, current_line)
+			preview.update_preview_content(preview_buf, items, current_line)
 		end
 	end, opts)
 
@@ -321,34 +254,36 @@ local function show_database_selector()
 		if current_line > 1 then
 			current_line = current_line - 1
 			vim.api.nvim_win_set_cursor(list_win, { current_line, 0 })
-			local items = get_visible_items(root)
-			items = filter_items(items, search_term)
-			update_preview_content(items, current_line)
+			local items = tree.get_visible_items(root)
+			items = tree.filter_items(items, search_term)
+			preview.update_preview_content(preview_buf, items, current_line)
 		end
 	end, opts)
 
 	-- Expand/Collapse keys
 	vim.keymap.set("n", "l", function()
-		local items = get_visible_items(root)
-		items = filter_items(items, search_term)
+		local items = tree.get_visible_items(root)
+		items = tree.filter_items(items, search_term)
 		local item = items[current_line]
 		if item and item.is_category and not item.expanded then
 			item.expanded = true
-			items = render_tree()
+			items = tree.get_visible_items(root)
+			preview.render_tree(list_buf, items)
 			vim.api.nvim_win_set_cursor(list_win, { current_line, 0 })
-			update_preview_content(items, current_line)
+			preview.update_preview_content(preview_buf, items, current_line)
 		end
 	end, opts)
 
 	vim.keymap.set("n", "h", function()
-		local items = get_visible_items(root)
-		items = filter_items(items, search_term)
+		local items = tree.get_visible_items(root)
+		items = tree.filter_items(items, search_term)
 		local item = items[current_line]
 		if item and item.is_category and item.expanded then
 			item.expanded = false
-			items = render_tree()
+			items = tree.get_visible_items(root)
+			preview.render_tree(list_buf, items)
 			vim.api.nvim_win_set_cursor(list_win, { current_line, 0 })
-			update_preview_content(items, current_line)
+			preview.update_preview_content(preview_buf, items, current_line)
 		elseif item and item.parent and item.parent ~= root then
 			-- Find parent's index
 			for i, node in ipairs(items) do
@@ -358,16 +293,17 @@ local function show_database_selector()
 				end
 			end
 			item.parent.expanded = false
-			items = render_tree()
+			items = tree.get_visible_items(root)
+			preview.render_tree(list_buf, items)
 			vim.api.nvim_win_set_cursor(list_win, { current_line, 0 })
-			update_preview_content(items, current_line)
+			preview.update_preview_content(preview_buf, items, current_line)
 		end
 	end, opts)
 
 	-- Selection and quit
 	vim.keymap.set("n", "<CR>", function()
-		local items = get_visible_items(root)
-		items = filter_items(items, search_term)
+		local items = tree.get_visible_items(root)
+		items = tree.filter_items(items, search_term)
 		local item = items[current_line]
 		if item and not item.is_category then
 			M.selected_database = item.db_config
@@ -521,22 +457,23 @@ end
 
 -- Setup function that will be called by users
 function M.setup(opts)
-	M.config = vim.tbl_deep_extend("force", M.config, opts or {})
+	-- Set up configuration
+	config.setup(opts)
 
 	-- Set up custom highlights
-	setup_highlights()
+	highlights.setup()
 
 	-- Basic setup logic here
-	if M.config.enabled then
+	if config.opts.enabled then
 		print("SQLSnap plugin is enabled!")
 	end
 
 	-- Create debug commands
 	vim.api.nvim_create_user_command("SQLSnapDebug", function()
 		print("SQLSnap Debug Info:")
-		print("Enabled:", M.config.enabled)
-		print("Number of databases:", #M.config.databases)
-		for _, db in ipairs(M.config.databases) do
+		print("Enabled:", config.opts.enabled)
+		print("Number of databases:", #config.opts.databases)
+		for _, db in ipairs(config.opts.databases) do
 			print(string.format("- %s (%s)", db.name, db.type))
 		end
 	end, {})
@@ -548,15 +485,15 @@ function M.setup(opts)
 
 	-- Create query execution command
 	vim.api.nvim_create_user_command("SQLSnapExecute", function(opts)
-		local query = opts.args
-		if #M.config.databases == 0 then
+		local query_text = opts.args
+		if #config.opts.databases == 0 then
 			vim.notify("No databases configured", vim.log.levels.ERROR)
 			return
 		end
 
 		-- Use the selected database or default to the first one
-		local db = M.selected_database or M.config.databases[1]
-		local result = execute_query(query, db)
+		local db = M.selected_database or config.opts.databases[1]
+		local result = query.execute_query(query_text, db, config.opts.backend)
 
 		if result then
 			-- If debug window exists, reuse it
@@ -566,36 +503,14 @@ function M.setup(opts)
 				vim.api.nvim_buf_set_lines(M.debug_buf, 2, -1, false, {})
 			else
 				-- Create new debug window
-				local buf, win = create_debug_window()
+				local buf, win = debug.create_debug_window()
 				M.debug_buf = buf
 				M.debug_win = win
 			end
 
 			-- Format and display results
-			local lines = format_query_results(result)
-
-			-- Set buffer content
-			vim.api.nvim_set_option_value("modifiable", true, { buf = M.debug_buf })
-			vim.api.nvim_buf_set_lines(M.debug_buf, 2, -1, false, lines)
-			vim.api.nvim_set_option_value("modifiable", false, { buf = M.debug_buf })
-
-			-- Apply syntax highlighting
-			local ns_id = vim.api.nvim_create_namespace("sqlsnap")
-			for i, line in ipairs(lines) do
-				local row = i + 1 -- Account for tab line and separator
-				if i <= 3 then
-					-- Header line
-					vim.api.nvim_buf_add_highlight(M.debug_buf, ns_id, "SQLSnapHeader", row, 0, -1)
-				else
-					-- Data cells
-					vim.api.nvim_buf_add_highlight(M.debug_buf, ns_id, "SQLSnapCell", row, 0, -1)
-				end
-			end
-
-			-- Set buffer options
-			vim.api.nvim_set_option_value("buftype", "nofile", { buf = M.debug_buf })
-			vim.api.nvim_set_option_value("bufhidden", "wipe", { buf = M.debug_buf })
-			vim.api.nvim_set_option_value("filetype", "sqlsnap", { buf = M.debug_buf })
+			local lines = query.format_query_results(result)
+			debug.display_results(M.debug_buf, M.debug_win, lines)
 		end
 	end, { nargs = 1 })
 end
