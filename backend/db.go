@@ -65,4 +65,4 @@ func executeQuery(req QueryRequest) QueryResult {
 	}
 
 	return result
-} 
+}

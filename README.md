@@ -57,5 +57,3 @@ nvim -c  "luafile test.lua"
    }
 
 ```
-
-

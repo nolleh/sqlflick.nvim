@@ -1,4 +1,4 @@
-version: '3.8'
+version: "3.8"
 
 services:
   postgres:
@@ -29,7 +29,17 @@ services:
     volumes:
       - mysql_data:/var/lib/mysql
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "test_user", "-ptest_password"]
+      test:
+        [
+          "CMD",
+          "mysqladmin",
+          "ping",
+          "-h",
+          "localhost",
+          "-u",
+          "test_user",
+          "-ptest_password",
+        ]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -49,4 +59,4 @@ services:
 volumes:
   postgres_data:
   mysql_data:
-  redis_data: 
+  redis_data:

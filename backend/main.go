@@ -18,7 +18,7 @@ type QueryRequest struct {
 type QueryResult struct {
 	Columns []string        `json:"columns"`
 	Rows    [][]interface{} `json:"rows"`
-	Error   string         `json:"error,omitempty"`
+	Error   string          `json:"error,omitempty"`
 }
 
 var drivers = map[string]DatabaseDriver{
@@ -68,10 +68,10 @@ func handleQuery(w http.ResponseWriter, r *http.Request) {
 
 func main() {
 	http.HandleFunc("/query", handleQuery)
-	
+
 	port := 8080
 	fmt.Printf("Starting SQLSnap backend server on port %d...\n", port)
 	if err := http.ListenAndServe(fmt.Sprintf(":%d", port), nil); err != nil {
 		log.Fatal(err)
 	}
-} 
+}

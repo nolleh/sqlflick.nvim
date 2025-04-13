@@ -73,4 +73,4 @@ function M.filter_items(items, term)
     return filtered
 end
 
-return M 
+return M

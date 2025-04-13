@@ -1,5 +1,7 @@
 local M = {}
 
+local handler = nil
+
 -- Import modules
 local config = require("sqlsnap.config")
 local preview = require("sqlsnap.preview")
@@ -7,10 +9,12 @@ local tree = require("sqlsnap.tree")
 local query = require("sqlsnap.query")
 local debug = require("sqlsnap.debug")
 local highlights = require("sqlsnap.highlights")
+local install = require("sqlsnap.install")
 
 -- Show database selection
 local function show_database_selector()
-	local search_buf, search_win, list_buf, list_win, preview_buf, preview_win = preview.create_preview_window(config.opts)
+	local search_buf, search_win, list_buf, list_win, preview_buf, preview_win =
+		preview.create_preview_window(config.opts)
 
 	-- Set buffer options
 	vim.api.nvim_set_option_value("modifiable", true, { buf = list_buf })
@@ -168,6 +172,9 @@ function M.setup(opts)
 	-- Set up configuration
 	config.setup(opts)
 
+	-- Ensure backend is installed
+	install.ensure_installed()
+
 	-- Set up custom highlights
 	highlights.setup()
 
@@ -181,6 +188,7 @@ function M.setup(opts)
 		print("SQLSnap Debug Info:")
 		print("Enabled:", config.opts.enabled)
 		print("Number of databases:", #config.opts.databases)
+		print("Backend version:", install.version())
 		for _, db in ipairs(config.opts.databases) do
 			print(string.format("- %s (%s)", db.name, db.type))
 		end
@@ -189,6 +197,11 @@ function M.setup(opts)
 	-- Create database selector command
 	vim.api.nvim_create_user_command("SQLSnapSelectDB", function()
 		show_database_selector()
+	end, {})
+
+	-- Create install command
+	vim.api.nvim_create_user_command("SQLSnapInstall", function()
+		install.exec()
 	end, {})
 
 	-- Create query execution command
@@ -221,6 +234,35 @@ function M.setup(opts)
 			debug.display_results(M.debug_buf, M.debug_win, lines)
 		end
 	end, { nargs = 1 })
+
+	if handler then
+		return
+	end
+	handler = require("sqlsnap.handler").new()
+end
+
+---Execute a query
+---@param database string
+---@param query string
+---@param config table
+function M.execute(database, query, config)
+	if not handler then
+		M.setup()
+	end
+	return handler:execute_query(database, query, config)
+end
+
+---Install the backend binary
+function M.install()
+	require("sqlsnap.install").exec()
+end
+
+---Stop the backend process
+function M.stop()
+	if handler then
+		handler:stop()
+		handler = nil
+	end
 end
 
 return M

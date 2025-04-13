@@ -77,4 +77,4 @@ function M.format_query_results(result)
     return lines
 end
 
-return M 
+return M

@@ -15,8 +15,6 @@ The plugin should be loaded and you can use:
 :SQLSnapSelectDB to open the database selector
 :SQLSnapDebug to see debug information
 
-
-
 SQLSnapTabLine: For the tab line background
 SQLSnapTabLineSel: For the active tab (bold and brighter)
 SQLSnapTabLineFill: For the tab line separator
