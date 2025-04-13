@@ -55,18 +55,30 @@ local function create_preview_window()
 	local width = M.config.preview.width
 	local height = M.config.preview.height
 	local border = M.config.preview.border
-
-	-- Create list buffer and window (left pane)
-	local list_buf = vim.api.nvim_create_buf(false, true)
-	-- local win_width = math.floor(vim.o.columns * 0.3) -- 30% of screen width for list
 	local win_width = math.floor(width * 0.3)
 	local x_offset = (vim.o.columns - width) / 2
+	local search_height = 1
+
+	-- Create search input buffer and window (top of left pane)
+	local search_buf = vim.api.nvim_create_buf(false, true)
+	local search_win = vim.api.nvim_open_win(search_buf, true, {
+		relative = "editor",
+		width = win_width,
+		height = search_height,
+		col = x_offset,
+		row = (vim.o.lines - height) / 2,
+		style = "minimal",
+		border = border,
+	})
+
+	-- Create list buffer and window (bottom of left pane)
+	local list_buf = vim.api.nvim_create_buf(false, true)
 	local list_win = vim.api.nvim_open_win(list_buf, true, {
 		relative = "editor",
 		width = win_width,
-		height = height,
+		height = height - search_height - 2, -- Adjust for search area and borders
 		col = x_offset,
-		row = (vim.o.lines - height) / 2,
+		row = (vim.o.lines - height) / 2 + search_height + 2,
 		style = "minimal",
 		border = border,
 	})
@@ -75,7 +87,7 @@ local function create_preview_window()
 	local preview_buf = vim.api.nvim_create_buf(false, true)
 	local preview_win = vim.api.nvim_open_win(preview_buf, false, {
 		relative = "editor",
-		width = width - win_width - 2, -- Remaining width minus borders
+		width = width - win_width - 2,
 		height = height,
 		col = x_offset + win_width + 2,
 		row = (vim.o.lines - height) / 2,
@@ -83,7 +95,13 @@ local function create_preview_window()
 		border = border,
 	})
 
-	return list_buf, list_win, preview_buf, preview_win
+	-- Set up search buffer
+	vim.api.nvim_set_option_value("modifiable", true, { buf = search_buf })
+	vim.api.nvim_set_option_value("buftype", "nofile", { buf = search_buf })
+	vim.api.nvim_buf_set_lines(search_buf, 0, -1, false, { "" })
+	vim.api.nvim_set_option_value("modifiable", false, { buf = search_buf })
+
+	return search_buf, search_win, list_buf, list_win, preview_buf, preview_win
 end
 
 -- Tree node structure for hierarchical navigation
@@ -96,7 +114,7 @@ function TreeNode.new(name, is_category, db_config, parent)
 		parent = parent,
 		children = {},
 		expanded = false,
-		depth = parent and (parent.depth + 1) or 0
+		depth = parent and (parent.depth + 1) or 0,
 	}
 end
 
@@ -111,7 +129,7 @@ local function build_tree(databases)
 			-- This is a category
 			local category = TreeNode.new(key, true, nil, root)
 			root.children[#root.children + 1] = category
-			
+
 			-- Add databases under this category
 			for _, db in ipairs(value) do
 				local db_node = TreeNode.new(db.name, false, db, category)
@@ -132,7 +150,7 @@ end
 local function get_visible_items(root)
 	local items = {}
 	local function traverse(node)
-		if node ~= root then  -- Skip root node
+		if node ~= root then -- Skip root node
 			items[#items + 1] = node
 		end
 		if node.expanded and node.children then
@@ -147,20 +165,40 @@ end
 
 -- Show database selection
 local function show_database_selector()
-	local list_buf, list_win, preview_buf, preview_win = create_preview_window()
+	local search_buf, search_win, list_buf, list_win, preview_buf, preview_win = create_preview_window()
 
 	-- Set buffer options
 	vim.api.nvim_set_option_value("modifiable", true, { buf = list_buf })
 	vim.api.nvim_set_option_value("buftype", "nofile", { buf = list_buf })
 	vim.api.nvim_set_option_value("filetype", "sqlsnap", { buf = list_buf })
 
+	-- Set search buffer options
+	vim.api.nvim_set_option_value("modifiable", true, { buf = search_buf })
+	vim.api.nvim_set_option_value("buftype", "nofile", { buf = search_buf })
+
 	-- Build tree structure
 	local root = build_tree(M.config.databases)
 	local current_line = 1
+	local search_term = ""
+
+	-- Function to filter items based on search term
+	local function filter_items(items, term)
+		if term == "" then
+			return items
+		end
+		local filtered = {}
+		for _, item in ipairs(items) do
+			if string.find(string.lower(item.name), string.lower(term)) then
+				filtered[#filtered + 1] = item
+			end
+		end
+		return filtered
+	end
 
 	-- Function to render tree
 	local function render_tree()
 		local items = get_visible_items(root)
+		items = filter_items(items, search_term)
 		local lines = {}
 		for _, item in ipairs(items) do
 			local prefix = string.rep("  ", item.depth)
@@ -171,11 +209,11 @@ local function show_database_selector()
 			end
 			lines[#lines + 1] = prefix .. item.name
 		end
-		
+
 		vim.api.nvim_set_option_value("modifiable", true, { buf = list_buf })
 		vim.api.nvim_buf_set_lines(list_buf, 0, -1, false, lines)
 		vim.api.nvim_set_option_value("modifiable", false, { buf = list_buf })
-		
+
 		return items
 	end
 
@@ -216,15 +254,43 @@ local function show_database_selector()
 	vim.api.nvim_set_option_value("signcolumn", "no", { win = list_win })
 	vim.api.nvim_set_option_value("wrap", false, { win = list_win })
 
+	-- Set up search input handling
+	vim.api.nvim_create_autocmd("TextChanged", {
+		buffer = search_buf,
+		callback = function()
+			search_term = vim.api.nvim_buf_get_lines(search_buf, 0, 1, false)[1]
+			items = render_tree()
+			if #items > 0 then
+				current_line = 1
+				vim.api.nvim_win_set_cursor(list_win, { current_line, 0 })
+				update_preview_content(items, current_line)
+			end
+		end,
+	})
+
+	vim.api.nvim_create_autocmd("TextChangedI", {
+		buffer = search_buf,
+		callback = function()
+			search_term = vim.api.nvim_buf_get_lines(search_buf, 0, 1, false)[1]
+			items = render_tree()
+			if #items > 0 then
+				current_line = 1
+				vim.api.nvim_win_set_cursor(list_win, { current_line, 0 })
+				update_preview_content(items, current_line)
+			end
+		end,
+	})
+
 	-- Set keymaps
 	local opts = { buffer = list_buf, silent = true }
 
 	-- Navigation keys
 	vim.keymap.set("n", "j", function()
 		local items = get_visible_items(root)
+		items = filter_items(items, search_term)
 		if current_line < #items then
 			current_line = current_line + 1
-			vim.api.nvim_win_set_cursor(list_win, {current_line, 0})
+			vim.api.nvim_win_set_cursor(list_win, { current_line, 0 })
 			update_preview_content(items, current_line)
 		end
 	end, opts)
@@ -232,8 +298,9 @@ local function show_database_selector()
 	vim.keymap.set("n", "k", function()
 		if current_line > 1 then
 			current_line = current_line - 1
-			vim.api.nvim_win_set_cursor(list_win, {current_line, 0})
+			vim.api.nvim_win_set_cursor(list_win, { current_line, 0 })
 			local items = get_visible_items(root)
+			items = filter_items(items, search_term)
 			update_preview_content(items, current_line)
 		end
 	end, opts)
@@ -241,22 +308,24 @@ local function show_database_selector()
 	-- Expand/Collapse keys
 	vim.keymap.set("n", "l", function()
 		local items = get_visible_items(root)
+		items = filter_items(items, search_term)
 		local item = items[current_line]
 		if item and item.is_category and not item.expanded then
 			item.expanded = true
 			items = render_tree()
-			vim.api.nvim_win_set_cursor(list_win, {current_line, 0})
+			vim.api.nvim_win_set_cursor(list_win, { current_line, 0 })
 			update_preview_content(items, current_line)
 		end
 	end, opts)
 
 	vim.keymap.set("n", "h", function()
 		local items = get_visible_items(root)
+		items = filter_items(items, search_term)
 		local item = items[current_line]
 		if item and item.is_category and item.expanded then
 			item.expanded = false
 			items = render_tree()
-			vim.api.nvim_win_set_cursor(list_win, {current_line, 0})
+			vim.api.nvim_win_set_cursor(list_win, { current_line, 0 })
 			update_preview_content(items, current_line)
 		elseif item and item.parent and item.parent ~= root then
 			-- Find parent's index
@@ -268,7 +337,7 @@ local function show_database_selector()
 			end
 			item.parent.expanded = false
 			items = render_tree()
-			vim.api.nvim_win_set_cursor(list_win, {current_line, 0})
+			vim.api.nvim_win_set_cursor(list_win, { current_line, 0 })
 			update_preview_content(items, current_line)
 		end
 	end, opts)
@@ -276,20 +345,27 @@ local function show_database_selector()
 	-- Selection and quit
 	vim.keymap.set("n", "<CR>", function()
 		local items = get_visible_items(root)
+		items = filter_items(items, search_term)
 		local item = items[current_line]
 		if item and not item.is_category then
 			M.selected_database = item.db_config
 			vim.api.nvim_win_close(preview_win, true)
 			vim.api.nvim_win_close(list_win, true)
+			vim.api.nvim_win_close(search_win, true)
 		end
 	end, opts)
 
 	vim.keymap.set("n", "q", function()
 		vim.api.nvim_win_close(preview_win, true)
 		vim.api.nvim_win_close(list_win, true)
+		vim.api.nvim_win_close(search_win, true)
 	end, opts)
 
-	return list_buf, list_win, preview_buf, preview_win
+	-- Focus search window initially
+	vim.api.nvim_set_current_win(search_win)
+	vim.cmd("startinsert")
+
+	return search_buf, search_win, list_buf, list_win, preview_buf, preview_win
 end
 
 -- Execute SQL query using backend
