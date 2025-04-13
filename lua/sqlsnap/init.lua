@@ -56,98 +56,128 @@ local function create_preview_window()
 	local height = M.config.preview.height
 	local border = M.config.preview.border
 
-	-- Create a floating window
-	local buf = vim.api.nvim_create_buf(false, true)
-	local win = vim.api.nvim_open_win(buf, true, {
+	-- Create list buffer and window (left pane)
+	local list_buf = vim.api.nvim_create_buf(false, true)
+	local win_width = math.floor(vim.o.columns * 0.3) -- 30% of screen width for list
+	local list_win = vim.api.nvim_open_win(list_buf, true, {
 		relative = "editor",
-		width = width,
+		width = win_width,
 		height = height,
-		col = (vim.o.columns - width) / 2,
+		col = 0,
 		row = (vim.o.lines - height) / 2,
 		style = "minimal",
 		border = border,
 	})
 
-	return buf, win
+	-- Create preview buffer and window (right pane)
+	local preview_buf = vim.api.nvim_create_buf(false, true)
+	local preview_win = vim.api.nvim_open_win(preview_buf, false, {
+		relative = "editor",
+		width = width - win_width - 2, -- Remaining width minus borders
+		height = height,
+		col = win_width + 2,
+		row = (vim.o.lines - height) / 2,
+		style = "minimal",
+		border = border,
+	})
+
+	return list_buf, list_win, preview_buf, preview_win
 end
 
 -- Show database selection
 local function show_database_selector()
-	local buf, win = create_preview_window()
+	local list_buf, list_win, preview_buf, preview_win = create_preview_window()
 
-	-- Set buffer options
-	vim.api.nvim_set_option_value("modifiable", true, { buf = buf })
-	vim.api.nvim_set_option_value("buftype", "nofile", { buf = buf })
-	vim.api.nvim_set_option_value("filetype", "sqlsnap", { buf = buf })
+	-- Set buffer options for list
+	vim.api.nvim_set_option_value("modifiable", true, { buf = list_buf })
+	vim.api.nvim_set_option_value("buftype", "nofile", { buf = list_buf })
+	vim.api.nvim_set_option_value("filetype", "sqlsnap", { buf = list_buf })
 
-	-- Add database options
-	local lines = { "Select a database:" }
+	-- Set buffer options for preview
+	vim.api.nvim_set_option_value("modifiable", true, { buf = preview_buf })
+	vim.api.nvim_set_option_value("buftype", "nofile", { buf = preview_buf })
+	vim.api.nvim_set_option_value("filetype", "sqlsnap", { buf = preview_buf })
+
+	-- Add database options to list buffer
+	local lines = {}
 	for _, db in ipairs(M.config.databases) do
-		table.insert(lines, string.format("%d. %s (%s)", #lines, db.name, db.type))
+		table.insert(lines, db.name)
 	end
 
-	vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
+	vim.api.nvim_buf_set_lines(list_buf, 0, -1, false, lines)
 
-	-- Hide cursor completely
-	vim.api.nvim_set_option_value("cursorline", false, { win = win })
-	vim.api.nvim_set_option_value("cursorcolumn", false, { win = win })
-	vim.api.nvim_set_option_value("number", false, { win = win })
-	vim.api.nvim_set_option_value("relativenumber", false, { win = win })
-	vim.api.nvim_set_option_value("signcolumn", "no", { win = win })
-	vim.api.nvim_set_option_value("wrap", false, { win = win })
+	-- Set window options for list
+	vim.api.nvim_set_option_value("cursorline", true, { win = list_win })
+	vim.api.nvim_set_option_value("number", false, { win = list_win })
+	vim.api.nvim_set_option_value("relativenumber", false, { win = list_win })
+	vim.api.nvim_set_option_value("signcolumn", "no", { win = list_win })
+	vim.api.nvim_set_option_value("wrap", false, { win = list_win })
+
+	-- Set window options for preview
+	vim.api.nvim_set_option_value("cursorline", false, { win = preview_win })
+	vim.api.nvim_set_option_value("number", false, { win = preview_win })
+	vim.api.nvim_set_option_value("relativenumber", false, { win = preview_win })
+	vim.api.nvim_set_option_value("signcolumn", "no", { win = preview_win })
+	vim.api.nvim_set_option_value("wrap", true, { win = preview_win })
 
 	local current_line = 1
 
-	-- Add arrow indicator
-	local function update_arrow_indicator(line)
-		if not vim.api.nvim_buf_is_valid(buf) then
+	-- Function to update preview content
+	local function update_preview_content(idx)
+		if idx < 1 or idx > #M.config.databases then
 			return
 		end
-		vim.api.nvim_set_option_value("modifiable", true, { buf = buf })
-		local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
-		for i, content in ipairs(lines) do
-			if i == line then
-				lines[i] = "→ " .. content:gsub("^→%s*", ""):gsub("^%s*", "")
-			else
-				lines[i] = "  " .. content:gsub("^→%s*", ""):gsub("^%s*", "")
-			end
-		end
-		vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
-		vim.api.nvim_set_option_value("modifiable", false, { buf = buf })
-		current_line = line
+		
+		local db = M.config.databases[idx]
+		local preview_lines = {
+			"Database Configuration:",
+			"",
+			"Name: " .. db.name,
+			"Type: " .. db.type,
+			"Host: " .. (db.host or "N/A"),
+			"Port: " .. (db.port or "N/A"),
+			"Database: " .. (db.database or "N/A"),
+			"Username: " .. (db.username or "N/A"),
+		}
+		
+		vim.api.nvim_set_option_value("modifiable", true, { buf = preview_buf })
+		vim.api.nvim_buf_set_lines(preview_buf, 0, -1, false, preview_lines)
+		vim.api.nvim_set_option_value("modifiable", false, { buf = preview_buf })
 	end
 
-	-- Initialize arrow indicator
-	update_arrow_indicator(1)
+	-- Initialize preview content
+	update_preview_content(1)
 
 	-- Set keymaps using vim.keymap.set
-	local opts = { buffer = buf, silent = true }
+	local opts = { buffer = list_buf, silent = true }
 
 	-- Navigation keys
 	vim.keymap.set("n", "j", function()
 		if current_line < #lines then
 			current_line = current_line + 1
-			update_arrow_indicator(current_line)
+			vim.api.nvim_win_set_cursor(list_win, {current_line, 0})
+			update_preview_content(current_line)
 		end
 	end, opts)
 
 	vim.keymap.set("n", "k", function()
 		if current_line > 1 then
 			current_line = current_line - 1
-			update_arrow_indicator(current_line)
+			vim.api.nvim_win_set_cursor(list_win, {current_line, 0})
+			update_preview_content(current_line)
 		end
 	end, opts)
 
 	-- Selection and quit
 	vim.keymap.set("n", "<CR>", function()
-		if current_line > 1 then
-			M.selected_database = M.config.databases[current_line - 1]
-			vim.api.nvim_win_close(win, true)
-		end
+		M.selected_database = M.config.databases[current_line]
+		vim.api.nvim_win_close(preview_win, true)
+		vim.api.nvim_win_close(list_win, true)
 	end, opts)
 
 	vim.keymap.set("n", "q", function()
-		vim.api.nvim_win_close(win, true)
+		vim.api.nvim_win_close(preview_win, true)
+		vim.api.nvim_win_close(list_win, true)
 	end, opts)
 
 	-- Block unwanted keys
@@ -156,7 +186,7 @@ local function show_database_selector()
 		vim.keymap.set("n", key, "<Nop>", opts)
 	end
 
-	return buf, win
+	return list_buf, list_win, preview_buf, preview_win
 end
 
 -- Execute SQL query using backend
