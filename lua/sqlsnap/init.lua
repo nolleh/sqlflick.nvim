@@ -7,8 +7,7 @@ local config = require("sqlsnap.config")
 local preview = require("sqlsnap.preview")
 local tree = require("sqlsnap.tree")
 local query = require("sqlsnap.query")
-local debug = require("sqlsnap.debug")
-local highlights = require("sqlsnap.highlights")
+local display = require("sqlsnap.display")
 local install = require("sqlsnap.install")
 
 -- Show database selection
@@ -183,7 +182,7 @@ function M.setup(opts)
 		print("SQLSnap plugin is enabled!")
 	end
 
-	-- Create debug commands
+	-- Create display commands
 	vim.api.nvim_create_user_command("SQLSnapDebug", function()
 		print("SQLSnap Debug Info:")
 		print("Enabled:", config.opts.enabled)
@@ -240,21 +239,21 @@ function M.setup(opts)
 		local result = query.execute_query(query_text, db, config.opts.backend)
 
 		if result then
-			-- If debug window exists, reuse it
-			if M.debug_win and vim.api.nvim_win_is_valid(M.debug_win) then
-				vim.api.nvim_set_current_win(M.debug_win)
-				vim.api.nvim_set_option_value("modifiable", true, { buf = M.debug_buf })
-				vim.api.nvim_buf_set_lines(M.debug_buf, 2, -1, false, {})
+			-- If display window exists, reuse it
+			if M.display_win and vim.api.nvim_win_is_valid(M.display_win) then
+				vim.api.nvim_set_current_win(M.display_win)
+				vim.api.nvim_set_option_value("modifiable", true, { buf = M.display_buf })
+				vim.api.nvim_buf_set_lines(M.display_buf, 2, -1, false, {})
 			else
-				-- Create new debug window
-				local buf, win = debug.create_debug_window()
-				M.debug_buf = buf
-				M.debug_win = win
+				-- Create new display window
+				local buf, win = display.create_display_window()
+				M.display_buf = buf
+				M.display_win = win
 			end
 
 			-- Format and display results
 			local lines = query.format_query_results(result)
-			debug.display_results(M.debug_buf, M.debug_win, lines)
+			display.display_results(M.display_buf, M.display_win, lines)
 		end
 	end, { nargs = 1 })
 
@@ -290,21 +289,21 @@ function M.setup(opts)
 		local result = query.execute_query(query_text, db, config.opts.backend)
 
 		if result then
-			-- If debug window exists, reuse it
-			if M.debug_win and vim.api.nvim_win_is_valid(M.debug_win) then
-				vim.api.nvim_set_current_win(M.debug_win)
-				vim.api.nvim_set_option_value("modifiable", true, { buf = M.debug_buf })
-				vim.api.nvim_buf_set_lines(M.debug_buf, 2, -1, false, {})
+			-- If display window exists, reuse it
+			if M.display_win and vim.api.nvim_win_is_valid(M.display_win) then
+				vim.api.nvim_set_current_win(M.display_win)
+				vim.api.nvim_set_option_value("modifiable", true, { buf = M.display_buf })
+				vim.api.nvim_buf_set_lines(M.display_buf, 2, -1, false, {})
 			else
-				-- Create new debug window
-				local buf, win = debug.create_debug_window()
-				M.debug_buf = buf
-				M.debug_win = win
+				-- Create new display window
+				local buf, win = display.create_display_window()
+				M.display_buf = buf
+				M.display_win = win
 			end
 
 			-- Format and display results
 			local lines = query.format_query_results(result)
-			debug.display_results(M.debug_buf, M.debug_win, lines)
+			display.display_results(M.display_buf, M.display_win, lines)
 		end
 	end, {})
 

@@ -1,7 +1,7 @@
 local M = {}
 
--- Create debug window with tabs
-function M.create_debug_window()
+-- Create display window with tabs
+function M.create_display_window()
 	-- Create new buffer
 	local buf = vim.api.nvim_create_buf(false, true)
 
@@ -39,7 +39,7 @@ function M.create_debug_window()
 	return buf, win
 end
 
--- Display query results in debug window
+-- Display query results in display window
 function M.display_results(buf, win, lines)
 	-- Set buffer content
 	vim.api.nvim_set_option_value("modifiable", true, { buf = buf })
