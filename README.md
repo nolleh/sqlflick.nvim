@@ -89,3 +89,29 @@ The following mappings are available for SQL-related file types (e.g., `.sql`, `
 | `SQLSnapSelectDB`   | n    | `<leader>ss` | Select database connection |
 | `SQLSnapExecuteBuf` | n    | `<leader>sq` | Execute current line query |
 | `SQLSnapExecuteBuf` | v    | `<leader>sq` | Execute selected query     |
+
+## Contributing
+
+We welcome and appreciate contributions from the community! Here's how you can help:
+
+- **Bug Reports**: Found a bug? Please open an issue with detailed steps to reproduce.
+- **Feature Requests**: Have an idea for a new feature? Open an issue to discuss it.
+- **Code Contributions**: Submit a pull request with a clear description of your changes
+- **Documentation**: Help improve our documentation by fixing typos, adding examples, or clarifying instructions.
+
+Before contributing, please read our [Contributing Guidelines](CONTRIBUTING.md) (if available) and ensure your code follows our coding standards.
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## Feedback
+
+Your feedback is valuable to us! Here are the ways you can contribute to the project's development:
+
+Visit our [GitHub repository](https://github.com/nolleh/sqlsnap.nvim) to:
+
+- Open an issue
+- Submit a pull request
+- Start a discussion
+- Star the project to show your support
