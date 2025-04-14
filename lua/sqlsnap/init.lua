@@ -255,7 +255,7 @@ function M.setup(opts)
 
 			-- Format and display results
 			local lines = query.format_query_results(result)
-			display.display_results(M.display_buf, M.display_win, lines)
+			display.display_results(M.display_buf, M.display_win, query_text, lines)
 		end
 	end, { nargs = 1 })
 
@@ -305,7 +305,7 @@ function M.setup(opts)
 
 			-- Format and display results
 			local lines = query.format_query_results(result)
-			display.display_results(M.display_buf, M.display_win, lines)
+			display.display_results(M.display_buf, M.display_win, query_text, lines)
 		end
 	end, {})
 

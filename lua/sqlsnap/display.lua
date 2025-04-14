@@ -40,16 +40,29 @@ function M.create_display_window()
 end
 
 -- Display query results in display window
-function M.display_results(buf, win, lines)
+function M.display_results(buf, win, query, results)
 	-- Set buffer content
 	vim.api.nvim_set_option_value("modifiable", true, { buf = buf })
+
+	local lines = {}
+	table.insert(lines, query)
+
+	-- Convert results to strings if it's an array
+	if type(results) == "table" then
+		for _, result in ipairs(results) do
+			table.insert(lines, tostring(result))
+		end
+	else
+		table.insert(lines, tostring(results))
+	end
+
 	vim.api.nvim_buf_set_lines(buf, 2, -1, false, lines)
 	vim.api.nvim_set_option_value("modifiable", false, { buf = buf })
 
 	-- Apply syntax highlighting
 	local ns_id = vim.api.nvim_create_namespace("sqlsnap")
 	for i, line in ipairs(lines) do
-		local row = i + 1 -- Account for tab line and separator
+		local row = i + 2 -- Account for tab line and separator
 		if i <= 3 then
 			-- Header line
 			vim.api.nvim_buf_add_highlight(buf, ns_id, "SQLSnapHeader", row, 0, -1)
@@ -66,4 +79,3 @@ function M.display_results(buf, win, lines)
 end
 
 return M
-
