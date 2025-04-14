@@ -5,9 +5,33 @@ function M.create_display_window()
 	-- Create new buffer
 	local buf = vim.api.nvim_create_buf(false, true)
 
-	-- Split the window vertically on the right side
-	vim.cmd("vsplit")
-	vim.cmd("wincmd L") -- Move to the rightmost window
+	-- Get display configuration
+	local config = require("sqlsnap.config").opts.display
+	local position = config.position or "bottom"
+
+	-- Calculate window dimensions
+	local win_height, win_width
+	if config.size_absolute.height then
+		win_height = config.size_absolute.height
+	else
+		win_height = math.floor(vim.o.lines * config.size.height)
+	end
+
+	if config.size_absolute.width then
+		win_width = config.size_absolute.width
+	else
+		win_width = math.floor(vim.o.columns * config.size.width)
+	end
+
+	-- Create split based on position
+	if position == "bottom" then
+		vim.cmd(win_height .. "split")
+		vim.cmd("wincmd J") -- Move to bottom
+	else
+		vim.cmd(win_width .. "vsplit")
+		vim.cmd("wincmd L") -- Move to right
+	end
+
 	local win = vim.api.nvim_get_current_win()
 	vim.api.nvim_win_set_buf(win, buf)
 

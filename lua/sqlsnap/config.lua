@@ -42,6 +42,18 @@ M.default_config = {
 		height = 15,
 		border = "rounded",
 	},
+	-- Display window settings
+	display = {
+		position = "bottom", -- "bottom" or "right"
+		size = {
+			height = 0.2, -- 20% of total height when position is "bottom"
+			width = 0.3,  -- 30% of total width when position is "right"
+		},
+		size_absolute = {
+			height = nil, -- Absolute height in lines, overrides size.height when set
+			width = nil,  -- Absolute width in columns, overrides size.width when set
+		},
+	},
 	-- Backend settings
 	backend = {
 		host = "localhost",
