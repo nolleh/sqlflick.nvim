@@ -99,4 +99,3 @@ function M.render_tree(list_buf, items)
 end
 
 return M
-

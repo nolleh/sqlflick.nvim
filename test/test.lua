@@ -30,7 +30,7 @@ sqlsnap.setup({
 				database = "dev_db",
 				username = "dev_user",
 				password = "dev_password",
-			}
+			},
 		},
 		-- Environment category with nested databases
 		prod = {
@@ -42,7 +42,7 @@ sqlsnap.setup({
 				database = "prod_db",
 				username = "prod_user",
 				password = "prod_password",
-			}
+			},
 		},
 		-- Direct database configurations (no category)
 		{

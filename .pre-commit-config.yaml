@@ -20,3 +20,7 @@ repos:
     rev: v2.7.1
     hooks:
       - id: prettier
+  - repo: https://github.com/JohnnyMorganz/StyLua
+    rev: v0.16.1
+    hooks:
+      - id: stylua
