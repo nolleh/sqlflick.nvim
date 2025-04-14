@@ -35,45 +35,62 @@ function M.format_query_results(result)
         return { "No results" }
     end
 
+    -- Debug information
+    -- print("Number of columns: " .. #result.columns)
+    -- print("Columns:", vim.inspect(result.columns))
+    -- print("First row:", vim.inspect(result.rows[1]))
+
     -- Calculate column widths
     local col_widths = {}
     for i, col in ipairs(result.columns) do
-        col_widths[i] = #col
+        col_widths[i] = vim.fn.strdisplaywidth(col)
         for _, row in ipairs(result.rows) do
             local val = tostring(row[i] or "")
-            col_widths[i] = math.max(col_widths[i], #val)
+            col_widths[i] = math.max(col_widths[i], vim.fn.strdisplaywidth(val))
         end
+    end
+
+    -- Add some padding
+    for i, width in ipairs(col_widths) do
+        col_widths[i] = width + 2  -- Add 2 spaces of padding
     end
 
     -- Format header
     local lines = {}
-    local header = "│ "
-    local separator = "├─"
-    for i, col in ipairs(result.columns) do
-        header = header .. string.format("%-" .. col_widths[i] .. "s │ ", col)
-        separator = separator .. string.rep("─", col_widths[i]) .. "─┼─"
+    local function create_line(left, mid, right)
+        local line = left
+        for i, width in ipairs(col_widths) do
+            line = line .. string.rep("─", width)
+            line = line .. (i < #col_widths and mid or right)
+        end
+        return line
     end
 
-    -- Replace last ┼ with ┤
-    separator = separator:sub(1, -3) .. "┤"
+    -- Create borders
+    local top = create_line("┌", "┬", "┐")
+    local mid = create_line("├", "┼", "┤")
+    local bot = create_line("└", "┴", "┘")
 
-    -- Add top border
-    table.insert(lines, "┌─" .. string.rep("─", #header - 3) .. "┐")
+    -- Create header
+    local header = "│"
+    for i, col in ipairs(result.columns) do
+        header = header .. string.format("%-" .. col_widths[i] .. "s", " " .. col .. " ") .. "│"
+    end
+
+    table.insert(lines, top)
     table.insert(lines, header)
-    table.insert(lines, separator)
+    table.insert(lines, mid)
 
     -- Format rows
     for _, row in ipairs(result.rows) do
-        local line = "│ "
+        local line = "│"
         for i, val in ipairs(row) do
-            line = line .. string.format("%-" .. col_widths[i] .. "s │ ", tostring(val or ""))
+            line = line .. string.format("%-" .. col_widths[i] .. "s", " " .. tostring(val or "") .. " ") .. "│"
         end
         table.insert(lines, line)
     end
 
-    -- Add bottom border
-    table.insert(lines, "└─" .. string.rep("─", #header - 3) .. "┘")
-
+    table.insert(lines, bot)
     return lines
 end
 
