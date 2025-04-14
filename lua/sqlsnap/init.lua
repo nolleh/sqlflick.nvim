@@ -8,6 +8,7 @@ local preview = require("sqlsnap.preview")
 local tree = require("sqlsnap.tree")
 local query = require("sqlsnap.query")
 local display = require("sqlsnap.display")
+local highlights = require("sqlsnap.highlights")
 local install = require("sqlsnap.install")
 
 -- Show database selection
@@ -207,6 +208,7 @@ function M.setup(opts)
 	local function setup_query_mappings()
 		vim.keymap.set("n", "<leader>sq", ":SQLSnapExecuteBuf<CR>", { silent = true, desc = "Execute SQL query on current line", buffer = true })
 		vim.keymap.set("v", "<leader>sq", ":SQLSnapExecuteBuf<CR>", { silent = true, desc = "Execute selected SQL query", buffer = true })
+    vim.keymap.set("n", "<leader>ss", ":SQLSnapSelectDB<CR>", { silent = true, desc = "Select DB from configuration"})
 	end
 
 	-- Set up mappings for SQL and query-related file types
@@ -307,7 +309,7 @@ function M.setup(opts)
 		end
 	end, {})
 
-	if handler then
+if handler then
 		return
 	end
 	handler = require("sqlsnap.handler").new()
