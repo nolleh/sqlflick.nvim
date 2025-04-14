@@ -178,11 +178,6 @@ function M.setup(opts)
 	-- Set up custom highlights
 	highlights.setup()
 
-	-- Basic setup logic here
-	if config.opts.enabled then
-		print("SQLSnap plugin is enabled!")
-	end
-
 	-- Create display commands
 	vim.api.nvim_create_user_command("SQLSnapDebug", function()
 		print("SQLSnap Debug Info:")

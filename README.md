@@ -31,7 +31,10 @@ Using [Lazy.nvim](https://github.com/folke/lazy.nvim):
         require("sqlsnap").setup({
             -- Configuration options (see below)
         })
-    end
+    end,
+    -- recommended load plugin option
+    cmd = { "SQLSnapSelectDB", "SQLSnapExecute", "SQLSnapExecuteBuf" },
+    ft = { "sql" },
 }
 ```
 
