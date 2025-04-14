@@ -204,6 +204,29 @@ function M.setup(opts)
 		install.exec()
 	end, {})
 
+	-- Add default key mappings for SQLSnapExecuteFile
+	local function setup_query_mappings()
+		vim.keymap.set("n", "<leader>sq", ":SQLSnapExecuteFile<CR>", { silent = true, desc = "Execute SQL query on current line", buffer = true })
+		vim.keymap.set("v", "<leader>sq", ":SQLSnapExecuteFile<CR>", { silent = true, desc = "Execute selected SQL query", buffer = true })
+	end
+
+	-- Set up mappings for SQL and query-related file types
+	vim.api.nvim_create_autocmd("FileType", {
+		pattern = {
+			"sql",
+			"pgsql",
+			"mysql",
+			"sqlite",
+			"hql",
+			"cql",
+			"plsql",
+			"tsql",
+			"ddl",
+			"dml"
+		},
+		callback = setup_query_mappings
+	})
+
 	-- Create query execution command
 	vim.api.nvim_create_user_command("SQLSnapExecute", function(opts)
 		local query_text = opts.args
@@ -234,6 +257,56 @@ function M.setup(opts)
 			debug.display_results(M.debug_buf, M.debug_win, lines)
 		end
 	end, { nargs = 1 })
+
+	-- Create file-based query execution command
+	vim.api.nvim_create_user_command("SQLSnapExecuteFile", function()
+		if #config.opts.databases == 0 then
+			vim.notify("No databases configured", vim.log.levels.ERROR)
+			return
+		end
+
+		local query_text = ""
+		local mode = vim.api.nvim_get_mode().mode
+
+		if mode == "v" or mode == "V" then
+			-- Visual mode: get selected text
+			local start_pos = vim.api.nvim_buf_get_mark(0, "<")
+			local end_pos = vim.api.nvim_buf_get_mark(0, ">")
+			local lines = vim.api.nvim_buf_get_lines(0, start_pos[1] - 1, end_pos[1], false)
+			query_text = table.concat(lines, "\n")
+		else
+			-- Normal mode: get current line
+			local line = vim.api.nvim_get_current_line()
+			query_text = line
+		end
+
+		if query_text == "" then
+			vim.notify("No query text found", vim.log.levels.ERROR)
+			return
+		end
+
+		-- Use the selected database or default to the first one
+		local db = M.selected_database or config.opts.databases[1]
+		local result = query.execute_query(query_text, db, config.opts.backend)
+
+		if result then
+			-- If debug window exists, reuse it
+			if M.debug_win and vim.api.nvim_win_is_valid(M.debug_win) then
+				vim.api.nvim_set_current_win(M.debug_win)
+				vim.api.nvim_set_option_value("modifiable", true, { buf = M.debug_buf })
+				vim.api.nvim_buf_set_lines(M.debug_buf, 2, -1, false, {})
+			else
+				-- Create new debug window
+				local buf, win = debug.create_debug_window()
+				M.debug_buf = buf
+				M.debug_win = win
+			end
+
+			-- Format and display results
+			local lines = query.format_query_results(result)
+			debug.display_results(M.debug_buf, M.debug_win, lines)
+		end
+	end, {})
 
 	if handler then
 		return
