@@ -10,11 +10,14 @@ A lightweight Neovim plugin for executing SQL queries with minimal setup. Design
 
   - Pre-configure multiple database connections
   - Quick switching between different databases
+
     ![](./docs/images/select-db.png)
 
 - **Query Execution**
+
   - Execute queries directly from your SQL buffer
   - Support for both single-line and multi-line queries
+
     ![](./docs/images/run_query.png)
 
 ## Installation
