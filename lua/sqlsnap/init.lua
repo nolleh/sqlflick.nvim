@@ -204,10 +204,10 @@ function M.setup(opts)
 		install.exec()
 	end, {})
 
-	-- Add default key mappings for SQLSnapExecuteFile
+	-- Add default key mappings for SQLSnapExecuteBuf
 	local function setup_query_mappings()
-		vim.keymap.set("n", "<leader>sq", ":SQLSnapExecuteFile<CR>", { silent = true, desc = "Execute SQL query on current line", buffer = true })
-		vim.keymap.set("v", "<leader>sq", ":SQLSnapExecuteFile<CR>", { silent = true, desc = "Execute selected SQL query", buffer = true })
+		vim.keymap.set("n", "<leader>sq", ":SQLSnapExecuteBuf<CR>", { silent = true, desc = "Execute SQL query on current line", buffer = true })
+		vim.keymap.set("v", "<leader>sq", ":SQLSnapExecuteBuf<CR>", { silent = true, desc = "Execute selected SQL query", buffer = true })
 	end
 
 	-- Set up mappings for SQL and query-related file types
@@ -259,7 +259,7 @@ function M.setup(opts)
 	end, { nargs = 1 })
 
 	-- Create file-based query execution command
-	vim.api.nvim_create_user_command("SQLSnapExecuteFile", function()
+	vim.api.nvim_create_user_command("SQLSnapExecuteBuf", function()
 		if #config.opts.databases == 0 then
 			vim.notify("No databases configured", vim.log.levels.ERROR)
 			return
