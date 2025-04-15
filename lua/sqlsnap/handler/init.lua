@@ -3,6 +3,22 @@ local M = {}
 local uv = vim.loop
 local backend_process = nil
 
+---Check if backend process is already running
+---@return boolean, number? _ is running, port number if found
+local function check_existing_process()
+	-- Try to find existing process
+	local pgrep = vim.fn.system("pgrep -f sqlsnap-backend")
+	if vim.v.shell_error ~= 0 then
+		return false
+	end
+
+	-- Check what port it's running on
+	local ps_out = vim.fn.system(string.format("ps -p %s -o command=", pgrep:gsub("\n", "")))
+	local port = ps_out:match("-port%s+(%d+)")
+
+	return true, tonumber(port)
+end
+
 ---@class Handler
 ---@field private process uv_process_t?
 ---@field private port number
@@ -27,12 +43,24 @@ function Handler:ensure_running()
 		return
 	end
 
+	-- Check if process is already running
+	local is_running, existing_port = check_existing_process()
+	if is_running then
+		if existing_port == self.port then
+			-- Process already running on our port, just mark it as running
+			self.process = true
+			return
+		else
+			vim.fn.system("pkill -f sqlsnap-backend")
+			vim.loop.sleep(100)
+		end
+	end
+
 	local backend_path = vim.fn.stdpath("data") .. "/sqlsnap/bin/sqlsnap-backend"
 	if vim.fn.filereadable(backend_path) ~= 1 then
 		error("Backend binary not found. Please run :SqlSnapInstall first")
 	end
 
-	-- vim.schedule(function()
 	local handle, pid = uv.spawn(backend_path, {
 		args = { "-port", tostring(self.port) },
 		stdio = { nil, 1, 2 },
@@ -42,12 +70,12 @@ function Handler:ensure_running()
 		end
 		self.process = nil
 	end)
+
 	if not handle then
 		error("Failed to start backend process")
 	end
 
 	self.process = handle
-	-- end)
 end
 
 ---Stop the backend process if running
