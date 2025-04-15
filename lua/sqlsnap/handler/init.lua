@@ -20,7 +20,6 @@ local function check_existing_process()
 end
 
 ---@class Handler
----@field private process uv_process_t?
 ---@field private port number
 ---@field private starting boolean
 local Handler = {}
@@ -37,10 +36,9 @@ function Handler:new(port)
 	return o
 end
 
----Start the backend process if not already running
-function Handler:ensure_running()
+function Handler:is_running()
 	if self.process then
-		return
+		return true
 	end
 
 	-- Check if process is already running
@@ -49,11 +47,20 @@ function Handler:ensure_running()
 		if existing_port == self.port then
 			-- Process already running on our port, just mark it as running
 			self.process = true
-			return
+			return true
 		else
 			vim.fn.system("pkill -f sqlsnap-backend")
 			vim.loop.sleep(100)
+			return false
 		end
+	end
+	return false
+end
+
+---Start the backend process if not already running
+function Handler:ensure_running()
+	if self:is_running() then
+		return
 	end
 
 	local backend_path = vim.fn.stdpath("data") .. "/sqlsnap/bin/sqlsnap-backend"
@@ -80,8 +87,8 @@ end
 
 ---Stop the backend process if running
 function Handler:stop()
-	if self.process then
-		self.process:kill()
+	if self:is_running() then
+		vim.fn.system("pkill -f sqlsnap-backend")
 		self.process = nil
 	end
 end
@@ -92,9 +99,9 @@ function Handler:restart()
 end
 
 ---Execute a query through the backend
----@param database string
 ---@param query string
----@param config table
+---@param db_config table
+---@param backend_config table
 ---@return table result
 function Handler:execute_query(query, db_config, backend_config)
 	if not self.process then

@@ -331,8 +331,8 @@ function M.setup(opts)
 end
 
 ---Execute a query
----@param database string
 ---@param query_text string
+---@param database table
 ---@param backend_config table
 function M.execute(query_text, database, backend_config)
 	if not handler then
