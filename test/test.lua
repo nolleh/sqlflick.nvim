@@ -75,4 +75,8 @@ sqlsnap.setup({
 		height = 20,
 		border = "rounded",
 	},
+	backend = {
+		host = "localhost",
+		port = 9090,
+	},
 })

@@ -2,18 +2,19 @@ local M = {}
 
 local uv = vim.loop
 local backend_process = nil
-local backend_port = 8080
 
 ---@class Handler
 ---@field private process uv_process_t?
 ---@field private port number
+---@field private starting boolean
 local Handler = {}
 
+---@param port number
 ---@return Handler
-function Handler:new()
+function Handler:new(port)
 	local o = {
 		process = nil,
-		port = backend_port,
+		port = port,
 	}
 	setmetatable(o, self)
 	self.__index = self
@@ -31,6 +32,7 @@ function Handler:ensure_running()
 		error("Backend binary not found. Please run :SqlSnapInstall first")
 	end
 
+	-- vim.schedule(function()
 	local handle, pid = uv.spawn(backend_path, {
 		args = { "-port", tostring(self.port) },
 		stdio = { nil, 1, 2 },
@@ -40,12 +42,12 @@ function Handler:ensure_running()
 		end
 		self.process = nil
 	end)
-
 	if not handle then
 		error("Failed to start backend process")
 	end
 
 	self.process = handle
+	-- end)
 end
 
 ---Stop the backend process if running
@@ -56,43 +58,76 @@ function Handler:stop()
 	end
 end
 
+function Handler:restart()
+	self:stop()
+	self:ensure_running()
+end
+
 ---Execute a query through the backend
 ---@param database string
 ---@param query string
 ---@param config table
 ---@return table result
-function Handler:execute_query(database, query, config)
-	self:ensure_running()
+function Handler:execute_query(query, db_config, backend_config)
+	if not self.process then
+		self:ensure_running()
+	end
 
-	local http = require("resty.http")
-	local httpc = http.new()
-	local res, err = httpc:request_uri("http://localhost:" .. tostring(self.port) .. "/query", {
-		method = "POST",
-		body = vim.json.encode({
-			database = database,
-			query = query,
-			config = config,
-		}),
-		headers = {
-			["Content-Type"] = "application/json",
+	-- local data = vim.json.encode({
+	-- 	database = database,
+	-- 	query = query,
+	-- 	config = config,
+	-- })
+	--
+	-- local curl_cmd = string.format(
+	-- 	"curl -s -X POST -H 'Content-Type: application/json' -d '%s' http://localhost:%d/query",
+	-- 	data,
+	-- 	self.port
+	-- )
+	--
+	-- local response = vim.fn.system(curl_cmd)
+	-- local result = vim.json.decode(response)
+	--
+	-- if result.error then
+	-- 	error("Query failed: " .. result.error)
+	-- end
+	--
+	-- if not self.process then
+	-- 	error("Backend process stopped unexpectedly")
+	-- end
+	--
+	-- return result
+	local url = string.format("http://%s:%d/query", backend_config.host, backend_config.port)
+
+	local data = {
+		database = db_config.type,
+		query = query,
+		config = {
+			host = db_config.host,
+			port = db_config.port,
+			user = db_config.username,
+			password = db_config.password,
+			dbname = db_config.database,
 		},
-	})
+	}
 
-	if err then
-		error("Failed to execute query: " .. err)
+	local response = vim.fn.system(
+		string.format("curl -s -X POST -H \"Content-Type: application/json\" -d '%s' %s", vim.fn.json_encode(data), url)
+	)
+
+	local result = vim.fn.json_decode(response)
+	if result.error then
+		vim.notify("Query failed: " .. result.error, vim.log.levels.ERROR)
+		return nil
 	end
 
-	if res.status ~= 200 then
-		error("Query failed: " .. res.body)
-	end
-
-	return vim.json.decode(res.body)
+	return result
 end
 
 ---Create a new handler instance
 ---@return Handler
-function M.new()
-	return Handler:new()
+function M.new(port)
+	return Handler:new(port)
 end
 
 return M

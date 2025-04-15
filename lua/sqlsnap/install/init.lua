@@ -58,10 +58,11 @@ function M.needs_install()
 	end
 
 	-- Check version
-	local version = M.version()
-	if version == "not_installed" or version == "unknown" then
-		return true
-	end
+	-- local version = M.version()
+	--  print("version:" .. version)
+	-- if version == "not_installed" or version == "unknown" then
+	-- 	return true
+	-- end
 
 	return false
 end

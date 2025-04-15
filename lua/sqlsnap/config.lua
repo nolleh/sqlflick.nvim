@@ -57,7 +57,7 @@ M.default_config = {
 	-- Backend settings
 	backend = {
 		host = "localhost",
-		port = 8080,
+		port = 9091,
 	},
 }
 

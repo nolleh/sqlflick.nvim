@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
+	"strconv"
 )
 
 // QueryRequest represents an incoming SQL query request
@@ -70,6 +72,17 @@ func main() {
 	http.HandleFunc("/query", handleQuery)
 
 	port := 8080
+	// Check for command line arguments
+	if len(os.Args) > 1 {
+		for i := 0; i < len(os.Args)-1; i++ {
+			if os.Args[i] == "-port" {
+				if p, err := strconv.Atoi(os.Args[i+1]); err == nil {
+					port = p
+				}
+			}
+		}
+	}
+
 	fmt.Printf("Starting SQLSnap backend server on port %d...\n", port)
 	if err := http.ListenAndServe(fmt.Sprintf(":%d", port), nil); err != nil {
 		log.Fatal(err)

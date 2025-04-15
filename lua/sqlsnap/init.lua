@@ -183,7 +183,8 @@ function M.setup(opts)
 		print("SQLSnap Debug Info:")
 		print("Enabled:", config.opts.enabled)
 		print("Number of databases:", #config.opts.databases)
-		print("Backend version:", install.version())
+		-- print("Backend version:", install.version())
+		print("Backend install path:", install.bin())
 		for _, db in ipairs(config.opts.databases) do
 			print(string.format("- %s (%s)", db.name, db.type))
 		end
@@ -298,7 +299,7 @@ function M.setup(opts)
 
 		-- Use the selected database or default to the first one
 		local db = M.selected_database or config.opts.databases[1]
-		local result = query.execute_query(query_text, db, config.opts.backend)
+		local result = M.execute(query_text, db, config.opts.backend)
 
 		if result then
 			-- If display window exists, reuse it
@@ -322,18 +323,24 @@ function M.setup(opts)
 	if handler then
 		return
 	end
-	handler = require("sqlsnap.handler").new()
+	handler = require("sqlsnap.handler").new(config.opts.backend.port)
+
+	-- vim.api.nvim_create_user_command("SQLSnapRestart", function()
+	-- 	if handler then
+	-- 		handler:restart()
+	-- 	end
+	-- end, {})
 end
 
 ---Execute a query
 ---@param database string
 ---@param query string
 ---@param config table
-function M.execute(database, query, config)
+function M.execute(query, databse, config)
 	if not handler then
 		M.setup()
 	end
-	return handler:execute_query(database, query, config)
+	return handler:execute_query(query, database, config)
 end
 
 ---Install the backend binary
