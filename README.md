@@ -24,6 +24,9 @@ A lightweight Neovim plugin for executing SQL queries with minimal setup. Design
 
 Using [Lazy.nvim](https://github.com/folke/lazy.nvim):
 
+> [!NOTE]
+> When update the plugin and if there is some problem, recommend to run `SQLSnapInstall`
+
 ```lua
 {
     "nolleh/sqlsnap.nvim",
@@ -33,7 +36,7 @@ Using [Lazy.nvim](https://github.com/folke/lazy.nvim):
         })
     end,
     -- recommended load plugin option
-    cmd = { "SQLSnapSelectDB", "SQLSnapExecute", "SQLSnapExecuteBuf" },
+    cmd = { "SQLSnapSelectDB", "SQLSnapExecute", "SQLSnapExecuteBuf", "SQLSnapInstall", "SQLSnapRestart" },
     ft = { "sql" },
 }
 ```
