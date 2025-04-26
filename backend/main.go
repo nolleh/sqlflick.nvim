@@ -23,11 +23,48 @@ type QueryResult struct {
 	Error   string          `json:"error,omitempty"`
 }
 
+// ErrorResponse represents a JSON error response
+type ErrorResponse struct {
+	Error string `json:"error"`
+}
+
 var drivers = map[string]DatabaseDriver{
 	"postgresql": &PostgresDriver{},
 	"mysql":      &MySQLDriver{},
 	"sqlite":     &SQLiteDriver{},
 	"redis":      &RedisDriver{},
+}
+
+// jsonErrorMiddleware wraps HTTP errors in JSON format
+func jsonErrorMiddleware(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		// Create a custom ResponseWriter that captures the status code
+		rw := &responseWriter{ResponseWriter: w}
+		next(rw, r)
+	}
+}
+
+// responseWriter is a custom ResponseWriter that captures the status code
+type responseWriter struct {
+	http.ResponseWriter
+	statusCode int
+}
+
+func (rw *responseWriter) WriteHeader(code int) {
+	rw.statusCode = code
+	rw.ResponseWriter.WriteHeader(code)
+}
+
+func (rw *responseWriter) Write(b []byte) (int, error) {
+	if rw.statusCode >= 400 {
+		// If it's an error response, wrap it in JSON
+		w := rw.ResponseWriter
+		w.Header().Set("Content-Type", "application/json")
+		response := ErrorResponse{Error: string(b)}
+		json.NewEncoder(w).Encode(response)
+		return len(b), nil
+	}
+	return rw.ResponseWriter.Write(b)
 }
 
 func handleQuery(w http.ResponseWriter, r *http.Request) {
@@ -69,7 +106,7 @@ func handleQuery(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
-	http.HandleFunc("/query", handleQuery)
+	http.HandleFunc("/query", jsonErrorMiddleware(handleQuery))
 
 	port := 8080
 	// Check for command line arguments

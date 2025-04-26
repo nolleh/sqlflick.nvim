@@ -23,7 +23,7 @@ function M.execute_query(query, db_config, backend_config)
 	local result = vim.fn.json_decode(response)
 	if result.error then
 		vim.notify("Query failed: " .. result.error, vim.log.levels.ERROR)
-		return nil
+		return result -- Return the error result instead of nil
 	end
 
 	return result
@@ -31,7 +31,16 @@ end
 
 -- Format query results as a table
 function M.format_query_results(result)
-	if not result or not result.columns or not result.rows then
+	if not result then
+		return { "No results" }
+	end
+
+	-- Handle error case
+	if result.error then
+		return { "Error: " .. result.error }
+	end
+
+	if not result.columns or not result.rows then
 		return { "No results" }
 	end
 
@@ -87,6 +96,7 @@ function M.format_query_results(result)
 	end
 
 	table.insert(lines, bot)
+
 	return lines
 end
 
