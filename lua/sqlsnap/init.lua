@@ -202,6 +202,16 @@ function M.setup(opts)
 		M.restart()
 	end, {})
 
+	local selected_text = function()
+		local mode = vim.api.nvim_get_mode().mode
+		local opts = {}
+		-- \22 is an escaped version of <c-v>
+		if mode == "v" or mode == "V" or mode == "\22" then
+			opts.type = mode
+		end
+		return vim.fn.getregion(vim.fn.getpos("v"), vim.fn.getpos("."), opts)
+	end
+
 	-- Add default key mappings for SQLSnapExecuteBuf
 	local function setup_query_mappings()
 		vim.keymap.set(
@@ -210,12 +220,14 @@ function M.setup(opts)
 			":SQLSnapExecuteBuf<CR>",
 			{ silent = true, desc = "Execute SQL query on current line", buffer = true }
 		)
-		vim.keymap.set(
-			"v",
-			"<leader>sq",
-			":SQLSnapExecuteBuf<CR>",
-			{ silent = true, desc = "Execute selected SQL query", buffer = true }
-		)
+		vim.keymap.set("v", "<leader>sq", function()
+			-- Get visual selection range
+			local query_text = table.concat(selected_text(), "\n")
+			vim.api.nvim_cmd({
+				cmd = "SQLSnapExecute",
+				args = { query_text },
+			}, {})
+		end, { silent = true, desc = "Execute selected SQL query", buffer = true })
 		vim.keymap.set(
 			"n",
 			"<leader>ss",
