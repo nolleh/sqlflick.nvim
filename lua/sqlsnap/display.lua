@@ -74,10 +74,14 @@ function M.display_results(buf, win, query, results)
 	-- Convert results to strings if it's an array
 	if type(results) == "table" then
 		for _, result in ipairs(results) do
-			table.insert(lines, tostring(result))
+			local str = tostring(result)
+			str = string.gsub(str, "%s+$", "")
+			table.insert(lines, str)
 		end
 	else
-		table.insert(lines, tostring(results))
+		local str = tostring(results)
+		str = string.gsub(str, "%s+$", "")
+		table.insert(lines, str)
 	end
 
 	vim.api.nvim_buf_set_lines(buf, 2, -1, false, lines)

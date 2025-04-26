@@ -23,17 +23,33 @@ function M.execute_query(query, db_config, backend_config)
 	local result = vim.fn.json_decode(response)
 	if result.error then
 		vim.notify("Query failed: " .. result.error, vim.log.levels.ERROR)
-		return result -- Return the error result instead of nil
+		return { error = result.error } -- Return a table with error key
 	end
 
 	return result
 end
 
+local function dump(o)
+	if type(o) == "table" then
+		local s = "{ "
+		for k, v in pairs(o) do
+			if type(k) ~= "number" then
+				k = '"' .. k .. '"'
+			end
+			s = s .. "[" .. k .. "] = " .. dump(v) .. ","
+		end
+		return s .. "} "
+	else
+		return tostring(o)
+	end
+end
+
 -- Format query results as a table
 function M.format_query_results(result)
 	-- Handle error case
+	-- print(dump(result))
 	if result.error then
-		return { "Error: " .. result.error }
+		return { "Error:" .. result.error }
 	end
 
 	if not result then

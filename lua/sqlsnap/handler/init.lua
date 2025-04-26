@@ -140,8 +140,8 @@ function Handler:execute_query(query, db_config, backend_config)
 
 	local result = vim.fn.json_decode(response)
 	if result.error then
-		vim.notify("Query failed!: " .. result.error, vim.log.levels.ERROR)
-		return result.error
+		vim.notify("Query failed: " .. result.error, vim.log.levels.ERROR)
+		return result
 	end
 
 	return result

@@ -18,8 +18,8 @@ type QueryRequest struct {
 
 // QueryResult represents the result of a SQL query
 type QueryResult struct {
-	Columns []string        `json:"columns"`
-	Rows    [][]interface{} `json:"rows"`
+	Columns []string        `json:"columns,omitempty"`
+	Rows    [][]interface{} `json:"rows,omitempty"`
 	Error   string          `json:"error,omitempty"`
 }
 
@@ -61,8 +61,11 @@ func (rw *responseWriter) Write(b []byte) (int, error) {
 		w := rw.ResponseWriter
 		w.Header().Set("Content-Type", "application/json")
 		response := ErrorResponse{Error: string(b)}
-		json.NewEncoder(w).Encode(response)
-		return len(b), nil
+		jsonData, err := json.Marshal(response)
+		if err != nil {
+			return 0, err
+		}
+		return w.Write(jsonData)
 	}
 	return rw.ResponseWriter.Write(b)
 }
@@ -102,7 +105,10 @@ func handleQuery(w http.ResponseWriter, r *http.Request) {
 
 	// Send response
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(result)
+	if err := json.NewEncoder(w).Encode(result); err != nil {
+		http.Error(w, fmt.Sprintf("Failed to encode response: %v", err), http.StatusInternalServerError)
+		return
+	}
 }
 
 func main() {
