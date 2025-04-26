@@ -267,7 +267,7 @@ function M.setup(opts)
 
 		-- Use the selected database or default to the first one
 		local db = M.selected_database or config.opts.databases[1]
-		local result = query.execute_query(query_text, db, config.opts.backend)
+		local result = M.execute(query_text, db, config.opts.backend)
 
 		if result then
 			-- If display window exists, reuse it

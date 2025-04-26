@@ -69,19 +69,42 @@ function M.display_results(buf, win, query, results)
 	vim.api.nvim_set_option_value("modifiable", true, { buf = buf })
 
 	local lines = {}
-	table.insert(lines, query)
 
 	-- Convert results to strings if it's an array
-	if type(results) == "table" then
-		for _, result in ipairs(results) do
-			local str = tostring(result)
-			str = string.gsub(str, "%s+$", "")
-			table.insert(lines, str)
+	local function normalize_string(str)
+		-- Convert to string if needed
+		str = tostring(str)
+		-- Replace any Windows-style newlines with Unix-style
+		str = string.gsub(str, "\r\n", "\n")
+		-- Remove trailing whitespace from each line
+		str = string.gsub(str, "%s+\n", "\n")
+		-- Remove trailing whitespace at the end
+		str = string.gsub(str, "%s+$", "")
+		return str
+	end
+
+	if type(query) == "table" then
+		for _, queryline in ipairs(query) do
+			local str = normalize_string(queryline)
+			local query_lines = vim.split(str, "\n", { plain = true })
+			vim.list_extend(lines, query_lines)
 		end
 	else
-		local str = tostring(results)
-		str = string.gsub(str, "%s+$", "")
-		table.insert(lines, str)
+		local str = normalize_string(query)
+		local query_lines = vim.split(str, "\n", { plain = true })
+		vim.list_extend(lines, query_lines)
+	end
+
+	if type(results) == "table" then
+		for _, result in ipairs(results) do
+			local str = normalize_string(result)
+			local result_lines = vim.split(str, "\n", { plain = true })
+			vim.list_extend(lines, result_lines)
+		end
+	else
+		local str = normalize_string(results)
+		local result_lines = vim.split(str, "\n", { plain = true })
+		vim.list_extend(lines, result_lines)
 	end
 
 	vim.api.nvim_buf_set_lines(buf, 2, -1, false, lines)
