@@ -301,11 +301,9 @@ function M.setup(opts)
 			return
 		end
 
-		print("------execute!!")
 		-- Use the selected database or default to the first one
 		local db = M.selected_database or config.opts.databases[1]
 		local result = M.execute(query_text, db, config.opts.backend)
-		print("------!!", result)
 
 		if result then
 			-- If display window exists, reuse it
