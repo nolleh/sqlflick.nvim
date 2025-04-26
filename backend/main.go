@@ -108,7 +108,7 @@ func handleQuery(w http.ResponseWriter, r *http.Request) {
 func main() {
 	http.HandleFunc("/query", jsonErrorMiddleware(handleQuery))
 
-	port := 8080
+	port := 9091
 	// Check for command line arguments
 	if len(os.Args) > 1 {
 		for i := 0; i < len(os.Args)-1; i++ {

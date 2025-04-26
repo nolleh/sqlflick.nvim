@@ -182,9 +182,10 @@ function M.setup(opts)
 	vim.api.nvim_create_user_command("SQLSnapDebug", function()
 		print("SQLSnap Debug Info:")
 		print("Enabled:", config.opts.enabled)
-		print("Number of databases:", #config.opts.databases)
 		-- print("Backend version:", install.version())
-		-- print("Backend install path:", install.bin())
+		print("Backend source dir:", install.source_path())
+		print("Backend install path:", install.bin())
+		print("Number of databases:", #config.opts.databases)
 		for _, db in ipairs(config.opts.databases) do
 			print(string.format("- %s (%s)", db.name, db.type))
 		end
@@ -198,6 +199,7 @@ function M.setup(opts)
 	-- Create install command
 	vim.api.nvim_create_user_command("SQLSnapInstall", function()
 		install.exec()
+		M.restart()
 	end, {})
 
 	-- Add default key mappings for SQLSnapExecuteBuf

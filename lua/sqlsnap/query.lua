@@ -31,13 +31,13 @@ end
 
 -- Format query results as a table
 function M.format_query_results(result)
-	if not result then
-		return { "No results" }
-	end
-
 	-- Handle error case
 	if result.error then
 		return { "Error: " .. result.error }
+	end
+
+	if not result then
+		return { "No results" }
 	end
 
 	if not result.columns or not result.rows then
