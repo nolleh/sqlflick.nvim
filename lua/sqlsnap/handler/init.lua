@@ -42,41 +42,10 @@ function Handler:new(port)
 	return o
 end
 
-function Handler:attach()
-	if self.process then
-		return true
-	end
-
-	local is_running, existing_port, pid = check_existing_process()
-	if is_running then
-		if existing_port == self.port then
-			-- Process already running on our port, get the handle
-			local handle = uv.spawn("true", {
-				args = {},
-				stdio = { nil, 1, 2 },
-			}, function(code, _)
-				if code ~= 0 then
-					print("[sqlsnap] Backend process exited with code: " .. tostring(code))
-				end
-				self.process = nil
-			end)
-			if handle then
-				--- handle:pid(pid)
-				print("attached running handler", pid)
-				self.process = handle
-			end
-			return true
-		else
-			vim.fn.system("pkill -f sqlsnap-backend")
-			vim.loop.sleep(100)
-			return false
-		end
-	end
-end
-
 ---Start the backend process if not already running
 function Handler:ensure_running()
-	if self:attach() then
+	local is_running, port, pid = check_existing_process()
+	if is_running then
 		return
 	end
 
@@ -104,13 +73,11 @@ end
 
 ---Stop the backend process if running
 function Handler:stop()
-	if self:attach() then
-		local handle = self.process
-		if handle then
-			handle:kill(9)
-			self.process = nil
-			print("stopped...", handle)
-		end
+	local running, _, pid = check_existing_process()
+	if running then
+		vim.fn.system("kill -SIGTERM " .. pid)
+		self.process = nil
+		print("stopped...", pid)
 	end
 end
 
