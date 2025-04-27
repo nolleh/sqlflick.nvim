@@ -5,7 +5,7 @@ function M.format_query_results(result)
 	-- Handle error case
 	-- print(dump(result))
 	if result.error then
-		return { "Error:" .. result.error }
+		return { "Error: " .. result.error }
 	end
 
 	if not result then
@@ -14,6 +14,11 @@ function M.format_query_results(result)
 
 	if not result.columns or not result.rows then
 		return { "No results" }
+	end
+
+	-- Handle DDL commands (like DROP TABLE) that return userdata
+	if type(result.columns) == "userdata" then
+		return { "Command executed successfully" }
 	end
 
 	-- Calculate column widths
