@@ -93,7 +93,7 @@ function Handler:ensure_running()
 
 	local handle, _ = uv.spawn(backend_path, {
 		args = { "-port", tostring(self.port) },
-		stdio = { nil, 1, 2 },
+		stdio = { nil, nil, nil },
 	}, function(code, _)
 		if code ~= 0 then
 			print("[sqlsnap] Backend process exited with code: " .. tostring(code))
