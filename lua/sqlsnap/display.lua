@@ -126,12 +126,12 @@ function M.display_results(buf, win, error, query, results)
 				vim.api.nvim_buf_add_highlight(buf, ns_id, "SQLSnapCell", row - 1, 0, -1)
 			end
 		else
-			if i <= 3 then
+			if i > query_lines and i < query_lines + 4 then
 				-- Header line
-				vim.api.nvim_buf_add_highlight(buf, ns_id, "SQLSnapHeader", row, 0, -1)
+				vim.api.nvim_buf_add_highlight(buf, ns_id, "SQLSnapHeader", row - 1, 0, -1)
 			else
 				-- Data cells
-				vim.api.nvim_buf_add_highlight(buf, ns_id, "SQLSnapCell", row, 0, -1)
+				vim.api.nvim_buf_add_highlight(buf, ns_id, "SQLSnapCell", row - 1, 0, -1)
 			end
 		end
 	end
