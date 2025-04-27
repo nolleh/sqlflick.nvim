@@ -1,8 +1,10 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -15,6 +17,23 @@ type QueryRequest struct {
 	Query    string `json:"query"`
 	Config   Config `json:"config"`
 }
+
+// UnmarshalJSON implements custom JSON unmarshaling for QueryRequest
+// func (q *QueryRequest) UnmarshalJSON(data []byte) error {
+// 	type Alias QueryRequest
+// 	aux := &struct {
+// 		*Alias
+// 		Query string `json:"query"`
+// 	}{
+// 		Alias: (*Alias)(q),
+// 	}
+// 	if err := json.Unmarshal(data, &aux); err != nil {
+// 		return err
+// 	}
+// 	// Preserve the original query string with quotes
+// 	q.Query = aux.Query
+// 	return nil
+// }
 
 // QueryResult represents the result of a SQL query
 type QueryResult struct {
@@ -76,8 +95,20 @@ func handleQuery(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Read the raw request body first
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, "Failed to read request body", http.StatusBadRequest)
+		return
+	}
+	// Restore the body for later use
+	r.Body = io.NopCloser(bytes.NewBuffer(body))
+
+	// Debug log the raw request body
+	fmt.Printf("Raw request body: %s\n", string(body))
+
 	var req QueryRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := json.NewDecoder(bytes.NewBuffer(body)).Decode(&req); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}

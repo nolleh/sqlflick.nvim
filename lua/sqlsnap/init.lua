@@ -10,6 +10,7 @@ local query = require("sqlsnap.query")
 local display = require("sqlsnap.display")
 local highlights = require("sqlsnap.highlights")
 local install = require("sqlsnap.install")
+local deps = require("sqlsnap.deps")
 
 -- Show database selection
 local function show_database_selector()
@@ -172,6 +173,14 @@ function M.setup(opts)
 	-- Set up configuration
 	config.setup(opts)
 
+	-- Check and install dependencies
+	if config.use_lua_http then
+		if not deps.install_dependencies() then
+			vim.notify("Failed to install required dependencies. Please install them manually.", vim.log.levels.ERROR)
+			return
+		end
+	end
+
 	-- Ensure backend is installed
 	install.ensure_installed()
 
@@ -182,7 +191,6 @@ function M.setup(opts)
 	vim.api.nvim_create_user_command("SQLSnapDebug", function()
 		print("SQLSnap Debug Info:")
 		print("Enabled:", config.opts.enabled)
-		-- print("Backend version:", install.version())
 		print("Backend source dir:", install.source_path())
 		print("Backend install path:", install.bin())
 		print("Number of databases:", #config.opts.databases)

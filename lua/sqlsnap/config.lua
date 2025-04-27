@@ -3,6 +3,7 @@ local M = {}
 M.default_config = {
 	-- Default configuration options
 	enabled = true,
+	use_lua_http = false,
 	databases = {
 		-- Example database configurations
 		-- {

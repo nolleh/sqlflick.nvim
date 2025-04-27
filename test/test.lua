@@ -77,6 +77,6 @@ sqlsnap.setup({
 	},
 	backend = {
 		host = "localhost",
-		port = 9090,
+		port = 9091,
 	},
 })
