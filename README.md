@@ -18,7 +18,9 @@ A lightweight Neovim plugin for executing SQL queries with minimal setup. Design
   - Execute queries directly from your SQL buffer
   - Support for both single-line and multi-line queries
 
-    ![](./docs/images/run_query.png)
+        ![](./docs/images/run_query.png)
+
+    ![](./docs/images/multiple_line_query.png)
 
 ## Installation
 

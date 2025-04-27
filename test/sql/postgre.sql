@@ -30,7 +30,13 @@ VALUES
     ('bob_builder', 'bob456', 'bob@example.com', '2024-02-15 09:15:00 UTC', '2024-02-15 10:00:00 UTC');
 
 SELECT * FROM account_test WHERE last_login IS NOT NULL;
-SELECT username, email, created_on FROM account_test ORDER BY created_on DESC;
+
+SELECT
+  username,
+  email,
+  created_on
+FROM account_test ORDER BY created_on DESC;
+
 SELECT COUNT(*) as active_users FROM account_test WHERE last_login >= CURRENT_TIMESTAMP - INTERVAL '1 day';
 
 -- Update statements with timestamp handling
