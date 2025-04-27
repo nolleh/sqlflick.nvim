@@ -284,7 +284,8 @@ function M.setup(opts)
 
 			-- Format and display results
 			local lines = query.format_query_results(result)
-			display.display_results(M.display_buf, M.display_win, query_text, lines)
+			local error = result.error ~= nil and true or false
+			display.display_results(M.display_buf, M.display_win, error, query_text, lines)
 		end
 	end, { nargs = 1 })
 
@@ -334,7 +335,8 @@ function M.setup(opts)
 
 			-- Format and display results
 			local lines = query.format_query_results(result)
-			display.display_results(M.display_buf, M.display_win, query_text, lines)
+			local error = result.error ~= nil and true or false
+			display.display_results(M.display_buf, M.display_win, error, query_text, lines)
 		end
 	end, {})
 

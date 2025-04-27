@@ -64,7 +64,7 @@ function M.create_display_window()
 end
 
 -- Display query results in display window
-function M.display_results(buf, win, query, results)
+function M.display_results(buf, win, error, query, results)
 	-- Set buffer content
 	vim.api.nvim_set_option_value("modifiable", true, { buf = buf })
 
@@ -94,6 +94,7 @@ function M.display_results(buf, win, query, results)
 		local query_lines = vim.split(str, "\n", { plain = true })
 		vim.list_extend(lines, query_lines)
 	end
+	local query_lines = #lines
 
 	if type(results) == "table" then
 		for _, result in ipairs(results) do
@@ -114,12 +115,24 @@ function M.display_results(buf, win, query, results)
 	local ns_id = vim.api.nvim_create_namespace("sqlsnap")
 	for i, line in ipairs(lines) do
 		local row = i + 2 -- Account for tab line and separator
-		if i <= 3 then
-			-- Header line
-			vim.api.nvim_buf_add_highlight(buf, ns_id, "SQLSnapHeader", row, 0, -1)
+		if error then
+			-- print(string.format("Processing line %d of %d total lines (query_lines: %d)", i, #lines, query_lines))
+			if i > query_lines then
+				-- print(string.format("Applying error highlight to line %d", row))
+				-- Use SQLSnapError highlight group for error messages
+				vim.api.nvim_buf_add_highlight(buf, ns_id, "SQLSnapError", row - 1, 0, -1)
+			else
+				-- Highlight query lines normally
+				vim.api.nvim_buf_add_highlight(buf, ns_id, "SQLSnapCell", row - 1, 0, -1)
+			end
 		else
-			-- Data cells
-			vim.api.nvim_buf_add_highlight(buf, ns_id, "SQLSnapCell", row, 0, -1)
+			if i <= 3 then
+				-- Header line
+				vim.api.nvim_buf_add_highlight(buf, ns_id, "SQLSnapHeader", row, 0, -1)
+			else
+				-- Data cells
+				vim.api.nvim_buf_add_highlight(buf, ns_id, "SQLSnapCell", row, 0, -1)
+			end
 		end
 	end
 

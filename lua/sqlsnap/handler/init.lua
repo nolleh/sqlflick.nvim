@@ -26,7 +26,7 @@ local function check_existing_process()
 end
 
 ---@class Handler
----@field private process uv_process_t?
+---@field private process uv.uv_process_t?
 ---@field private port number
 local Handler = {}
 
@@ -44,7 +44,7 @@ end
 
 ---Start the backend process if not already running
 function Handler:ensure_running()
-	local is_running, port, pid = check_existing_process()
+	local is_running, _, _ = check_existing_process()
 	if is_running then
 		return
 	end
@@ -54,7 +54,7 @@ function Handler:ensure_running()
 		error("Backend binary not found. Please run :SqlSnapInstall first")
 	end
 
-	local handle, pid = uv.spawn(backend_path, {
+	local handle, _ = uv.spawn(backend_path, {
 		args = { "-port", tostring(self.port) },
 		stdio = { nil, 1, 2 },
 	}, function(code, _)
