@@ -11,6 +11,8 @@ import (
 	"strconv"
 )
 
+const VERSION = "0.1.0"
+
 // QueryRequest represents an incoming SQL query request
 type QueryRequest struct {
 	Database string `json:"database"`
@@ -143,19 +145,20 @@ func handleQuery(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
-	http.HandleFunc("/query", jsonErrorMiddleware(handleQuery))
-
 	port := 9091
-	// Check for command line arguments
-	if len(os.Args) > 1 {
-		for i := 0; i < len(os.Args)-1; i++ {
-			if os.Args[i] == "-port" {
-				if p, err := strconv.Atoi(os.Args[i+1]); err == nil {
-					port = p
-				}
+	for i := 0; i < len(os.Args); i++ {
+		if os.Args[i] == "-version" {
+			fmt.Println(VERSION)
+			return
+		}
+		if os.Args[i] == "-port" {
+			if p, err := strconv.Atoi(os.Args[i+1]); err == nil {
+				port = p
 			}
 		}
 	}
+
+	http.HandleFunc("/query", jsonErrorMiddleware(handleQuery))
 
 	fmt.Printf("Starting SQLSnap backend server on port %d...\n", port)
 	if err := http.ListenAndServe(fmt.Sprintf(":%d", port), nil); err != nil {
