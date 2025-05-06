@@ -211,6 +211,13 @@ function M.setup(opts)
 		M.restart()
 	end, {})
 
+	-- Add VimLeavePre autocmd to stop backend when Neovim is closed
+	vim.api.nvim_create_autocmd("VimLeavePre", {
+		callback = function()
+			M.stop()
+		end,
+	})
+
 	local selected_text = function()
 		local mode = vim.api.nvim_get_mode().mode
 		local opts = {}
