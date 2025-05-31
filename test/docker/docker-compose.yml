@@ -1,4 +1,4 @@
-version: "3.8"
+version: "3.9"
 
 services:
   postgres:
@@ -59,7 +59,25 @@ services:
       retries: 5
     restart: unless-stopped
 
+  vertica:
+    environment:
+      APP_DB_USER: "dbadmin"
+      APP_DB_PASSWORD:
+    container_name: vertica-ce
+    image: vertica/vertica-ce
+    platform: linux/amd64
+    ports:
+      - "5433:5433"
+      - "5444:5444"
+    deploy:
+      mode: global
+    volumes:
+      - type: volume
+        source: vertica-data2
+        target: /data
+
 volumes:
   postgres_data:
   mysql_data:
   redis_data:
+  vertica-data2:

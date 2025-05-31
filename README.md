@@ -1,4 +1,4 @@
-# sqlsnap.nvim
+# sqlflick.nvim
 
 A lightweight Neovim plugin for executing SQL queries with minimal setup. Designed for quick and efficient database interactions directly from your workspace.
 
@@ -27,18 +27,18 @@ A lightweight Neovim plugin for executing SQL queries with minimal setup. Design
 Using [Lazy.nvim](https://github.com/folke/lazy.nvim):
 
 > [!NOTE]
-> When update the plugin and if there is some problem, recommend to run `SQLSnapInstall`
+> When update the plugin and if there is some problem, recommend to run `SQLFlickInstall`
 
 ```lua
 {
-    "nolleh/sqlsnap.nvim",
+    "nolleh/sqlflick.nvim",
     config = function()
-        require("sqlsnap").setup({
+        require("sqlflick").setup({
             -- Configuration options (see below)
         })
     end,
     -- recommended load plugin option
-    cmd = { "SQLSnapSelectDB", "SQLSnapExecute", "SQLSnapExecuteBuf", "SQLSnapInstall", "SQLSnapRestart" },
+    cmd = { "SQLFlickSelectDB", "SQLFlickExecute", "SQLFlickExecuteBuf", "SQLFlickInstall", "SQLFlickRestart" },
     ft = { "sql" },
 }
 ```
@@ -92,11 +92,11 @@ Using [Lazy.nvim](https://github.com/folke/lazy.nvim):
 
 The following mappings are available for SQL-related file types (e.g., `.sql`, `.pgsql`, `.mysql`):
 
-| Command             | Mode | Key Binding  | Description                |
-| ------------------- | ---- | ------------ | -------------------------- |
-| `SQLSnapSelectDB`   | n    | `<leader>ss` | Select database connection |
-| `SQLSnapExecuteBuf` | n    | `<leader>sq` | Execute current line query |
-| `SQLSnapExecuteBuf` | v    | `<leader>sq` | Execute selected query     |
+| Command              | Mode | Key Binding  | Description                |
+| -------------------- | ---- | ------------ | -------------------------- |
+| `SQLFlickSelectDB`   | n    | `<leader>ss` | Select database connection |
+| `SQLFlickExecuteBuf` | n    | `<leader>sq` | Execute current line query |
+| `SQLFlickExecuteBuf` | v    | `<leader>sq` | Execute selected query     |
 
 ## Contributing
 
@@ -117,7 +117,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 Your feedback is valuable to us! Here are the ways you can contribute to the project's development:
 
-Visit our [GitHub repository](https://github.com/nolleh/sqlsnap.nvim) to:
+Visit our [GitHub repository](https://github.com/nolleh/sqlflick.nvim) to:
 
 - Open an issue
 - Submit a pull request

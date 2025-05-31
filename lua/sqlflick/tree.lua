@@ -1,5 +1,7 @@
 local M = {}
 
+local config = require("sqlflick.config")
+
 -- Tree node structure for hierarchical navigation
 local TreeNode = {}
 function TreeNode.new(name, is_category, db_config, parent)
@@ -10,14 +12,18 @@ function TreeNode.new(name, is_category, db_config, parent)
 		parent = parent,
 		children = {},
 		expanded = false,
-		depth = parent and (parent.depth + 1) or 0,
+		depth = (parent and parent.depth and (parent.depth + 1)) or 0,
 	}
 end
 
 -- Build tree structure from databases config
 function M.build_tree(databases)
-	local root = TreeNode.new("root", true, nil, nil)
-	root.expanded = true
+	local root = {
+		name = "Databases",
+		is_category = true,
+		expanded = true,
+		children = {},
+	}
 
 	-- First pass: Create category nodes
 	for key, value in pairs(databases) do

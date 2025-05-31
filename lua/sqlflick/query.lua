@@ -1,11 +1,14 @@
 local M = {}
 
+local config = require("sqlflick.config")
+
 -- Format query results as a table
 function M.format_query_results(result)
-	-- Handle error case
-	-- print(dump(result))
+	local lines = {}
 	if result.error then
-		return { "Error: " .. result.error }
+		table.insert(lines, "Error executing query:")
+		table.insert(lines, result.error)
+		return lines
 	end
 
 	if not result then
@@ -37,8 +40,6 @@ function M.format_query_results(result)
 	end
 
 	-- Format header
-	local lines = {}
-
 	local function create_line(left, mid, right)
 		local line = left
 		for i, width in ipairs(col_widths) do

@@ -3,14 +3,14 @@ local M = {}
 local handler = nil
 
 -- Import modules
-local config = require("sqlsnap.config")
-local preview = require("sqlsnap.preview")
-local tree = require("sqlsnap.tree")
-local query = require("sqlsnap.query")
-local display = require("sqlsnap.display")
-local highlights = require("sqlsnap.highlights")
-local install = require("sqlsnap.install")
-local deps = require("sqlsnap.deps")
+local config = require("sqlflick.config")
+local preview = require("sqlflick.preview")
+local tree = require("sqlflick.tree")
+local query = require("sqlflick.query")
+local display = require("sqlflick.display")
+local highlights = require("sqlflick.highlights")
+local install = require("sqlflick.install")
+local deps = require("sqlflick.deps")
 
 -- Show database selection
 local function show_database_selector()
@@ -188,8 +188,8 @@ function M.setup(opts)
 	highlights.setup()
 
 	-- Create display commands
-	vim.api.nvim_create_user_command("SQLSnapDebug", function()
-		print("SQLSnap Debug Info:")
+	vim.api.nvim_create_user_command("SQLFlickDebug", function()
+		print("SQLFlick Debug Info:")
 		print("Enabled:", config.opts.enabled)
 		print("Backend version: ", install.version())
 		print("Backend source dir:", install.source_path())
@@ -201,12 +201,12 @@ function M.setup(opts)
 	end, {})
 
 	-- Create database selector command
-	vim.api.nvim_create_user_command("SQLSnapSelectDB", function()
+	vim.api.nvim_create_user_command("SQLFlickSelectDB", function()
 		show_database_selector()
 	end, {})
 
 	-- Create install command
-	vim.api.nvim_create_user_command("SQLSnapInstall", function()
+	vim.api.nvim_create_user_command("SQLFlickInstall", function()
 		install.exec()
 		M.restart()
 	end, {})
@@ -228,26 +228,26 @@ function M.setup(opts)
 		return vim.fn.getregion(vim.fn.getpos("v"), vim.fn.getpos("."), opts)
 	end
 
-	-- Add default key mappings for SQLSnapExecuteBuf
+	-- Add default key mappings for SQLFlickExecuteBuf
 	local function setup_query_mappings()
 		vim.keymap.set(
 			"n",
 			"<leader>sq",
-			":SQLSnapExecuteBuf<CR>",
+			":SQLFlickExecuteBuf<CR>",
 			{ silent = true, desc = "Execute SQL query on current line", buffer = true }
 		)
 		vim.keymap.set("v", "<leader>sq", function()
 			-- Get visual selection range
 			local query_text = table.concat(selected_text(), "\n")
 			vim.api.nvim_cmd({
-				cmd = "SQLSnapExecute",
+				cmd = "SQLFlickExecute",
 				args = { query_text },
 			}, {})
 		end, { silent = true, desc = "Execute selected SQL query", buffer = true })
 		vim.keymap.set(
 			"n",
 			"<leader>ss",
-			":SQLSnapSelectDB<CR>",
+			":SQLFlickSelectDB<CR>",
 			{ silent = true, desc = "Select DB from configuration" }
 		)
 	end
@@ -269,12 +269,12 @@ function M.setup(opts)
 		callback = setup_query_mappings,
 	})
 
-	vim.api.nvim_create_user_command("SQLSnapRestart", function()
+	vim.api.nvim_create_user_command("SQLFlickRestart", function()
 		M.restart()
 	end, {})
 
 	-- Create query execution command
-	vim.api.nvim_create_user_command("SQLSnapExecute", function(opts)
+	vim.api.nvim_create_user_command("SQLFlickExecute", function(opts)
 		local query_text = opts.args
 		if #config.opts.databases == 0 then
 			vim.notify("No databases configured", vim.log.levels.ERROR)
@@ -306,7 +306,7 @@ function M.setup(opts)
 	end, { nargs = 1 })
 
 	-- Create file-based query execution command
-	vim.api.nvim_create_user_command("SQLSnapExecuteBuf", function()
+	vim.api.nvim_create_user_command("SQLFlickExecuteBuf", function()
 		if #config.opts.databases == 0 then
 			vim.notify("No databases configured", vim.log.levels.ERROR)
 			return
@@ -384,7 +384,7 @@ function M.setup(opts)
 	if handler then
 		return
 	end
-	handler = require("sqlsnap.handler").new(config.opts.backend.port)
+	handler = require("sqlflick.handler"):new(config.opts.backend.port)
 end
 
 ---Execute a query
@@ -396,20 +396,20 @@ function M.execute(query_text, database, backend_config)
 		M.setup()
 	end
 
-	handler = require("sqlsnap.handler").new(config.opts.backend.port)
+	handler = require("sqlflick.handler"):new(config.opts.backend.port)
 	return handler:execute_query(query_text, database, backend_config)
 end
 
 ---Install the backend binary
 function M.install()
-	require("sqlsnap.install").exec()
+	require("sqlflick.install").exec()
 end
 
 function M.restart()
 	if not handler then
 		M.setup()
 	end
-	handler = require("sqlsnap.handler").new(config.opts.backend.port)
+	handler = require("sqlflick.handler"):new(config.opts.backend.port)
 	return handler:restart()
 end
 

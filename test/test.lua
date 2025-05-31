@@ -3,12 +3,13 @@
 
 -- Add the current directory to the runtime path
 vim.opt.rtp:append(".")
+-- print("Handler module:", vim.inspect(require("sqlflick.handler")))
 
 -- Load the plugin
-local sqlsnap = require("sqlsnap")
+local sqlflick = require("sqlflick")
 
 -- Test the setup function with example databases
-sqlsnap.setup({
+sqlflick.setup({
 	enabled = true,
 	databases = {
 		-- Environment category with nested databases

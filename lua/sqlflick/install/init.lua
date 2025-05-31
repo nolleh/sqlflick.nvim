@@ -1,5 +1,7 @@
 local M = {}
 
+local config = require("sqlflick.config")
+
 local function log_error(mes)
 	print("[sqlsnap install - error]: " .. mes)
 end

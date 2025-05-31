@@ -1,4 +1,7 @@
-local M = {}
+---@class Handler
+---@field private process uv.uv_process_t?
+---@field private port number
+local Handler = {}
 
 local uv = vim.loop
 
@@ -61,11 +64,6 @@ local function check_existing_process()
 
 	return true, tonumber(port), pid
 end
-
----@class Handler
----@field private process uv.uv_process_t?
----@field private port number
-local Handler = {}
 
 ---@param port number
 ---@return Handler
@@ -177,10 +175,4 @@ function Handler:execute_query(query, db_config, backend_config)
 	return result
 end
 
----Create a new handler instance
----@return Handler
-function M.new(port)
-	return Handler:new(port)
-end
-
-return M
+return Handler

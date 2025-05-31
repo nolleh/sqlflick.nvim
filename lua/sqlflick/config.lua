@@ -1,6 +1,6 @@
 local M = {}
 
-M.default_config = {
+M.opts = {
 	-- Default configuration options
 	enabled = true,
 	use_lua_http = false,
@@ -58,11 +58,9 @@ M.default_config = {
 	-- Backend settings
 	backend = {
 		host = "localhost",
-		port = 9091,
+		port = 8080,
 	},
 }
-
-M.opts = vim.deepcopy(M.default_config)
 
 function M.setup(opts)
 	M.opts = vim.tbl_deep_extend("force", M.opts, opts or {})

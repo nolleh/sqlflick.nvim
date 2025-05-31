@@ -1,5 +1,7 @@
 local M = {}
 
+local config = require("sqlflick.config")
+
 -- Create a preview window
 function M.create_preview_window(config)
 	local width = config.preview.width
@@ -50,6 +52,10 @@ function M.create_preview_window(config)
 	vim.api.nvim_set_option_value("buftype", "nofile", { buf = search_buf })
 	vim.api.nvim_buf_set_lines(search_buf, 0, -1, false, { "" })
 	vim.api.nvim_set_option_value("modifiable", false, { buf = search_buf })
+
+	vim.api.nvim_set_option_value("modifiable", true, { buf = list_buf })
+	vim.api.nvim_set_option_value("buftype", "nofile", { buf = list_buf })
+	vim.api.nvim_set_option_value("filetype", "sqlflick", { buf = list_buf })
 
 	return search_buf, search_win, list_buf, list_win, preview_buf, preview_win
 end
