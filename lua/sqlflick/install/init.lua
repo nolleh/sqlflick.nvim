@@ -3,10 +3,10 @@ local M = {}
 local config = require("sqlflick.config")
 
 local function log_error(mes)
-	print("[sqlsnap install - error]: " .. mes)
+	print("[sqlflick install - error]: " .. mes)
 end
 local function log_info(mes)
-	print("[sqlsnap install]: " .. mes)
+	print("[sqlflick install]: " .. mes)
 end
 
 -- Compare semantic versions
@@ -49,7 +49,7 @@ end
 
 ---@return string _ path to install dir
 function M.dir()
-	return vim.fn.stdpath("data") .. "/sqlsnap/bin"
+	return vim.fn.stdpath("data") .. "/sqlflick/bin"
 end
 
 ---@return string _ path to binary
@@ -58,12 +58,12 @@ function M.bin()
 	if vim.fn.has("win32") == 1 then
 		suffix = ".exe"
 	end
-	return M.dir() .. "/sqlsnap-backend" .. suffix
+	return M.dir() .. "/sqlflick-backend" .. suffix
 end
 
 ---@return string _ path of go source
 function M.source_path()
-	local p, _ = debug.getinfo(1).source:sub(2):gsub("/lua/sqlsnap/install/init.lua$", "/backend")
+	local p, _ = debug.getinfo(1).source:sub(2):gsub("/lua/sqlflick/install/init.lua$", "/backend")
 	return p
 end
 
@@ -104,7 +104,7 @@ function M.needs_install()
 	end
 
 	-- Compare with current plugin version
-	local plugin_version = "1.0.0" -- This should match the VERSION in main.go
+	local plugin_version = "0.1.1" -- This should match the VERSION in main.go
 	if compare_versions(plugin_version, version) > 0 then
 		vim.notify(
 			string.format("Backend version %s is outdated. Current version is %s", version, plugin_version),
@@ -140,12 +140,12 @@ function M.exec()
 		if code == 0 then
 			log_info("Successfully built backend")
 		else
-			log_error("Failed to build backend")
+			log_error("Failed to build backend dest(" .. install_binary .. "), src:(" .. source_dir .. ")")
 		end
 	end)
 
 	if not handle then
-		error("Failed to start build process")
+		error("Failed to start build process. dest(" .. install_binary .. "), src: (" .. source_dir .. ")")
 	end
 end
 

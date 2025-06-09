@@ -10,6 +10,7 @@ A lightweight Neovim plugin for executing SQL queries with minimal setup. Design
 
   - Pre-configure multiple database connections
   - Quick switching between different databases
+  - In below screen shot, empty box is place for search to filter configuration.
 
     ![](./docs/images/select-db.png)
 
@@ -96,7 +97,7 @@ The following mappings are available for SQL-related file types (e.g., `.sql`, `
 | -------------------- | ---- | ------------ | -------------------------- |
 | `SQLFlickSelectDB`   | n    | `<leader>ss` | Select database connection |
 | `SQLFlickExecuteBuf` | n    | `<leader>sq` | Execute current line query |
-| `SQLFlickExecuteBuf` | v    | `<leader>sq` | Execute selected query     |
+| `SQLFlickExecute`    | v    | `<leader>sq` | Execute selected query     |
 
 ## Contributing
 
