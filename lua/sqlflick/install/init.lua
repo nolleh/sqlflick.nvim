@@ -104,7 +104,7 @@ function M.needs_install()
 	end
 
 	-- Compare with current plugin version
-	local plugin_version = "0.1.1" -- This should match the VERSION in main.go
+	local plugin_version = "0.1.2" -- This should match the VERSION in main.go
 	if compare_versions(plugin_version, version) > 0 then
 		vim.notify(
 			string.format("Backend version %s is outdated. Current version is %s", version, plugin_version),
