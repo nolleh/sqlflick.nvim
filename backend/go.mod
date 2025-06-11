@@ -1,4 +1,4 @@
-module github.com/nolleh/sqlsnap.nvim/backend
+module github.com/nolleh/sqlflick.nvim/backend
 
 go 1.21
 

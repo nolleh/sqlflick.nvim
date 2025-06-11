@@ -160,7 +160,7 @@ func main() {
 
 	http.HandleFunc("/query", jsonErrorMiddleware(handleQuery))
 
-	fmt.Printf("Starting SQLSnap backend server on port %d...\n", port)
+	fmt.Printf("Starting SQLFlick backend server on port %d...\n", port)
 	if err := http.ListenAndServe(fmt.Sprintf(":%d", port), nil); err != nil {
 		log.Fatal(err)
 	}

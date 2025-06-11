@@ -1,8 +1,8 @@
 return {
 	{
-		dir = "~/.config/nvim/lua/plugins/sqlsnap",
+		dir = "~/.config/nvim/lua/plugins/sqlflick",
 		config = function()
-			require("sqlsnap").setup({
+			require("sqlflick").setup({
 				enabled = true,
 				databases = {
 					{

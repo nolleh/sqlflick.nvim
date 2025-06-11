@@ -20,7 +20,7 @@ local function show_database_selector()
 	-- Set buffer options
 	vim.api.nvim_set_option_value("modifiable", true, { buf = list_buf })
 	vim.api.nvim_set_option_value("buftype", "nofile", { buf = list_buf })
-	vim.api.nvim_set_option_value("filetype", "sqlsnap", { buf = list_buf })
+	vim.api.nvim_set_option_value("filetype", "sqlflick", { buf = list_buf })
 
 	-- Set search buffer options
 	vim.api.nvim_set_option_value("modifiable", true, { buf = search_buf })

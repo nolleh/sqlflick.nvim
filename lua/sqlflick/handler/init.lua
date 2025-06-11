@@ -46,7 +46,7 @@ end
 ---@return boolean, number?, number? _ is running, port number if found, pid if found
 local function check_existing_process()
 	-- Try to find existing process
-	local pgrep = vim.fn.system("pgrep -f sqlsnap-backend")
+	local pgrep = vim.fn.system("pgrep -f sqlflick-backend")
 	if vim.v.shell_error ~= 0 then
 		return false
 	end
@@ -84,9 +84,9 @@ function Handler:ensure_running()
 		return
 	end
 
-	local backend_path = vim.fn.stdpath("data") .. "/sqlsnap/bin/sqlsnap-backend"
+	local backend_path = vim.fn.stdpath("data") .. "/sqlflick/bin/sqlflick-backend"
 	if vim.fn.filereadable(backend_path) ~= 1 then
-		error("Backend binary not found. Please run :SqlSnapInstall first")
+		error("Backend binary not found. Please run :SQLFlickInstall first")
 	end
 
 	local handle, _ = uv.spawn(backend_path, {
@@ -94,7 +94,7 @@ function Handler:ensure_running()
 		stdio = { nil, nil, nil },
 	}, function(code, _)
 		if code ~= 0 then
-			print("[sqlsnap] Backend process exited with code: " .. tostring(code))
+			print("[sqlflick] Backend process exited with code: " .. tostring(code))
 		end
 		self.process = nil
 	end)

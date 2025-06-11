@@ -3,8 +3,8 @@
 # Build the Go backend
 echo "Building backend..."
 cd "$(dirname "$0")"
-go build -o sqlsnap-backend
+go build -o sqlflick-backend
 
 # Run the backend server
 echo "Starting backend server..."
-./sqlsnap-backend
+./sqlflick-backend
