@@ -4,6 +4,14 @@ A lightweight Neovim plugin for executing SQL queries with minimal setup. Design
 
 > **Note**: This plugin is actively maintained and developed based on real-world needs. Breaking changes may occur as features are continuously improved.
 
+## Why sqlflick.nvim?
+
+- No need to leave your beloved neovim 🥰 to query!
+- No external dependency (DB client)
+- Flick your finger to run query, immediately
+  - <leader>ss -> select db (for once, in session)
+  - <leader>sq -> run query
+
 ## Features
 
 - **Database Connection Management**
@@ -98,6 +106,13 @@ The following mappings are available for SQL-related file types (e.g., `.sql`, `
 | `SQLFlickSelectDB`   | n    | `<leader>ss` | Select database connection |
 | `SQLFlickExecuteBuf` | n    | `<leader>sq` | Execute current line query |
 | `SQLFlickExecute`    | v    | `<leader>sq` | Execute selected query     |
+
+## Trouble Shoot
+
+> [!NOTE]
+> When update the plugin and if there is some problem, recommend to run `SQLFlickInstall`
+
+If this is not sufficient to your situation and it occured after update the plugin, plz refer [WIKI/Migration-Guide](https://github.com/nolleh/sqlflick.nvim/wiki/Migration-Guide)
 
 ## Contributing
 
