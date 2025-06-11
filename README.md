@@ -9,8 +9,8 @@ A lightweight Neovim plugin for executing SQL queries with minimal setup. Design
 - No need to leave your beloved neovim 🥰 to query!
 - No external dependency (DB client)
 - Flick your finger to run query, immediately
-  - <leader>ss -> select db (for once, in session)
-  - <leader>sq -> run query
+  - `<leader>ss` -> select db (for once, in session)
+  - `<leader>sq` -> run query
 
 ## Features
 
