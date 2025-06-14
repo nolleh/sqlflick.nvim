@@ -113,7 +113,7 @@ The following mappings are available for SQL-related file types (e.g., `.sql`, `
 | ---------- | ------- | ------- | ------ |
 | MySql      | ✅      |         |        |
 | PostgreSQL | ✅      |         |        |
-| SQLLite3   | ✅      |         |        |
+| sqlite     | ✅      |         |        |
 | Redis      | ✅      |         |        |
 | Oracle DB  |         | ✅      |        |
 | Mongo DB   |         | ✅      |        |
