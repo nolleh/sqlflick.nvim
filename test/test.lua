@@ -70,6 +70,11 @@ sqlflick.setup({
 			host = "localhost",
 			port = 6379,
 		},
+		{
+			name = "local_sqlite",
+			type = "sqlite",
+			database = "test.db",
+		},
 	},
 	preview = {
 		width = 60,

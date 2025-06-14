@@ -107,6 +107,18 @@ The following mappings are available for SQL-related file types (e.g., `.sql`, `
 | `SQLFlickExecuteBuf` | n    | `<leader>sq` | Execute current line query |
 | `SQLFlickExecute`    | v    | `<leader>sq` | Execute selected query     |
 
+## Supported Database
+
+| Database   | Support | Planned | Remark |
+| ---------- | ------- | ------- | ------ |
+| MySql      | ✅      |         |        |
+| PostgreSQL | ✅      |         |        |
+| SQLLite3   | ✅      |         |        |
+| Redis      | ✅      |         |        |
+| Oracle DB  |         | ✅      |        |
+| Mongo DB   |         | ✅      |        |
+| Dynamo DB  |         | ✅      |        |
+
 ## Trouble Shoot
 
 > [!NOTE]
