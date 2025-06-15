@@ -4,7 +4,7 @@ local handler = nil
 
 -- Import modules
 local config = require("sqlflick.config")
-local preview = require("sqlflick.preview")
+local selector = require("sqlflick.selector")
 local tree = require("sqlflick.tree")
 local query = require("sqlflick.query")
 local display = require("sqlflick.display")
@@ -14,8 +14,8 @@ local deps = require("sqlflick.deps")
 
 -- Show database selection
 local function show_database_selector()
-	local search_buf, search_win, list_buf, list_win, preview_buf, preview_win =
-		preview.create_preview_window(config.opts)
+	local search_buf, search_win, list_buf, list_win, selector_buf, selector_win =
+		selector.create_selector_window(config.opts)
 
 	-- Set buffer options
 	vim.api.nvim_set_option_value("modifiable", true, { buf = list_buf })
@@ -33,8 +33,8 @@ local function show_database_selector()
 
 	-- Initial render
 	local items = tree.get_visible_items(root)
-	preview.render_tree(list_buf, items)
-	preview.update_preview_content(preview_buf, items, current_line)
+	selector.render_tree(list_buf, items)
+	selector.update_selector_content(selector_buf, items, current_line)
 
 	-- Set window options
 	vim.api.nvim_set_option_value("cursorline", true, { win = list_win })
@@ -49,11 +49,11 @@ local function show_database_selector()
 		callback = function()
 			search_term = vim.api.nvim_buf_get_lines(search_buf, 0, 1, false)[1]
 			items = tree.filter_items(tree.get_visible_items(root), search_term)
-			preview.render_tree(list_buf, items)
+			selector.render_tree(list_buf, items)
 			if #items > 0 then
 				current_line = 1
 				vim.api.nvim_win_set_cursor(list_win, { current_line, 0 })
-				preview.update_preview_content(preview_buf, items, current_line)
+				selector.update_selector_content(selector_buf, items, current_line)
 			end
 		end,
 	})
@@ -88,7 +88,7 @@ local function show_database_selector()
 		if current_line < #items then
 			current_line = current_line + 1
 			vim.api.nvim_win_set_cursor(list_win, { current_line, 0 })
-			preview.update_preview_content(preview_buf, items, current_line)
+			selector.update_selector_content(selector_buf, items, current_line)
 		end
 	end, opts)
 
@@ -98,7 +98,7 @@ local function show_database_selector()
 			vim.api.nvim_win_set_cursor(list_win, { current_line, 0 })
 			local items = tree.get_visible_items(root)
 			items = tree.filter_items(items, search_term)
-			preview.update_preview_content(preview_buf, items, current_line)
+			selector.update_selector_content(selector_buf, items, current_line)
 		end
 	end, opts)
 
@@ -110,9 +110,9 @@ local function show_database_selector()
 		if item and item.is_category and not item.expanded then
 			item.expanded = true
 			items = tree.get_visible_items(root)
-			preview.render_tree(list_buf, items)
+			selector.render_tree(list_buf, items)
 			vim.api.nvim_win_set_cursor(list_win, { current_line, 0 })
-			preview.update_preview_content(preview_buf, items, current_line)
+			selector.update_selector_content(selector_buf, items, current_line)
 		end
 	end, opts)
 
@@ -123,9 +123,9 @@ local function show_database_selector()
 		if item and item.is_category and item.expanded then
 			item.expanded = false
 			items = tree.get_visible_items(root)
-			preview.render_tree(list_buf, items)
+			selector.render_tree(list_buf, items)
 			vim.api.nvim_win_set_cursor(list_win, { current_line, 0 })
-			preview.update_preview_content(preview_buf, items, current_line)
+			selector.update_selector_content(selector_buf, items, current_line)
 		elseif item and item.parent and item.parent ~= root then
 			-- Find parent's index
 			for i, node in ipairs(items) do
@@ -136,9 +136,9 @@ local function show_database_selector()
 			end
 			item.parent.expanded = false
 			items = tree.get_visible_items(root)
-			preview.render_tree(list_buf, items)
+			selector.render_tree(list_buf, items)
 			vim.api.nvim_win_set_cursor(list_win, { current_line, 0 })
-			preview.update_preview_content(preview_buf, items, current_line)
+			selector.update_selector_content(selector_buf, items, current_line)
 		end
 	end, opts)
 
@@ -149,14 +149,14 @@ local function show_database_selector()
 		local item = items[current_line]
 		if item and not item.is_category then
 			M.selected_database = item.db_config
-			vim.api.nvim_win_close(preview_win, true)
+			vim.api.nvim_win_close(selector_win, true)
 			vim.api.nvim_win_close(list_win, true)
 			vim.api.nvim_win_close(search_win, true)
 		end
 	end, opts)
 
 	vim.keymap.set("n", "q", function()
-		vim.api.nvim_win_close(preview_win, true)
+		vim.api.nvim_win_close(selector_win, true)
 		vim.api.nvim_win_close(list_win, true)
 		vim.api.nvim_win_close(search_win, true)
 	end, opts)
@@ -165,7 +165,7 @@ local function show_database_selector()
 	vim.api.nvim_set_current_win(search_win)
 	vim.cmd("startinsert")
 
-	return search_buf, search_win, list_buf, list_win, preview_buf, preview_win
+	return search_buf, search_win, list_buf, list_win, selector_buf, selector_win
 end
 
 -- Setup function that will be called by users

@@ -76,7 +76,7 @@ sqlflick.setup({
 			database = "test.db",
 		},
 	},
-	preview = {
+	selector = {
 		width = 60,
 		height = 20,
 		border = "rounded",
