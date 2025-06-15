@@ -96,7 +96,7 @@ function M.setup(opts)
 		-- )
 		vim.notify(
 			"The 'preview' config has changed to 'selector'.\n"
-				.. "See: https://github.com/nolleh/sqlflick.nvim/wiki/Migration-Guide",
+				.. "See: https://github.com/nolleh/sqlflick.nvim/wiki/Migration-Guide#rename-configuration-of-preview",
 			vim.log.levels.WARN
 		)
 	end
