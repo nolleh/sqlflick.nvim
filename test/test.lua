@@ -10,79 +10,79 @@ local sqlflick = require("sqlflick")
 
 -- Test the setup function with example databases
 sqlflick.setup({
-	enabled = true,
-	databases = {
-		-- Environment category with nested databases
-		dev = {
-			{
-				name = "dev_postgres",
-				type = "postgresql",
-				host = "localhost",
-				port = 5432,
-				database = "test_db",
-				username = "test_user",
-				password = "test_password",
-			},
-			{
-				name = "dev_mysql",
-				type = "mysql",
-				host = "localhost",
-				port = 3306,
-				database = "dev_db",
-				username = "dev_user",
-				password = "dev_password",
-			},
-		},
-		-- Environment category with nested databases
-		prod = {
-			{
-				name = "prod_postgres",
-				type = "postgresql",
-				host = "prod.host",
-				port = 5432,
-				database = "prod_db",
-				username = "prod_user",
-				password = "prod_password",
-			},
-		},
-		-- Direct database configurations (no category)
-		{
-			name = "local_postgres",
-			type = "postgresql",
-			host = "localhost",
-			port = 5432,
-			database = "test_db",
-			username = "test_user",
-			password = "test_password",
-		},
-		{
-			name = "local_mysql",
-			type = "mysql",
-			host = "localhost",
-			port = 3306,
-			database = "test_db",
-			username = "test_user",
-			password = "test_password",
-		},
-		{
-			name = "local_redis",
-			type = "redis",
-			host = "localhost",
-			port = 6379,
-		},
-		{
-			name = "local_sqlite",
-			type = "sqlite",
-			database = "test.db",
-		},
-	},
-	selector = {
-		width = 60,
-		height = 20,
-		border = "rounded",
-	},
-	backend = {
-		host = "localhost",
-		port = 9091,
-	},
+  enabled = true,
+  databases = {
+    -- Environment category with nested databases
+    dev = {
+      {
+        name = "dev_postgres",
+        type = "postgresql",
+        host = "localhost",
+        port = 5432,
+        database = "test_db",
+        username = "test_user",
+        password = "test_password",
+      },
+      {
+        name = "dev_mysql",
+        type = "mysql",
+        host = "localhost",
+        port = 3306,
+        database = "dev_db",
+        username = "dev_user",
+        password = "dev_password",
+      },
+    },
+    -- Environment category with nested databases
+    prod = {
+      {
+        name = "prod_postgres",
+        type = "postgresql",
+        host = "prod.host",
+        port = 5432,
+        database = "prod_db",
+        username = "prod_user",
+        password = "prod_password",
+      },
+    },
+    -- Direct database configurations (no category)
+    {
+      name = "local_postgres",
+      type = "postgresql",
+      host = "localhost",
+      port = 5432,
+      database = "test_db",
+      username = "test_user",
+      password = "test_password",
+    },
+    {
+      name = "local_mysql",
+      type = "mysql",
+      host = "localhost",
+      port = 3306,
+      database = "test_db",
+      username = "test_user",
+      password = "test_password",
+    },
+    {
+      name = "local_redis",
+      type = "redis",
+      host = "localhost",
+      port = 6379,
+    },
+    {
+      name = "local_sqlite",
+      type = "sqlite",
+      database = "test.db",
+    },
+  },
+  selector = {
+    width = 60,
+    height = 20,
+    border = "rounded",
+  },
+  backend = {
+    host = "localhost",
+    port = 9091,
+  },
 })
