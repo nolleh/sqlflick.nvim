@@ -24,7 +24,7 @@ return {
 						password = "secret",
 					},
 				},
-				preview = {
+				selector = {
 					width = 60,
 					height = 15,
 					border = "rounded",

@@ -4,9 +4,9 @@ local config = require("sqlflick.config")
 
 -- Create a preview window
 function M.create_preview_window(config)
-	local width = config.preview.width
-	local height = config.preview.height
-	local border = config.preview.border
+	local width = config.selector.width
+	local height = config.selector.height
+	local border = config.selector.border
 	local win_width = math.floor(width * 0.3)
 	local x_offset = (vim.o.columns - width) / 2
 	local search_height = 1
