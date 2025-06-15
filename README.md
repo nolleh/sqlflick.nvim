@@ -69,8 +69,8 @@ Using [Lazy.nvim](https://github.com/folke/lazy.nvim):
         -- },
     },
 
-    -- Preview window settings
-    preview = {
+    -- DBSelector window settings
+    selector = {
         width = 60,
         height = 15,
         border = "rounded",
