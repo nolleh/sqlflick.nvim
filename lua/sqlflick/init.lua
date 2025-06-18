@@ -11,6 +11,9 @@ local display = require("sqlflick.display")
 local highlights = require("sqlflick.highlights")
 local install = require("sqlflick.install")
 local deps = require("sqlflick.deps")
+local cache = require("sqlflick.cache")
+
+M.selected_database = cache.load_cache("last_db")
 
 -- Show database selection
 local function show_database_selector()
@@ -149,6 +152,7 @@ local function show_database_selector()
     local item = items[current_line]
     if item and not item.is_category then
       M.selected_database = item.db_config
+      cache.save_cache("last_db", item.db_config)
       vim.api.nvim_win_close(selector_win, true)
       vim.api.nvim_win_close(list_win, true)
       vim.api.nvim_win_close(search_win, true)
