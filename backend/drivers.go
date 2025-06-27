@@ -10,6 +10,7 @@ import (
 	_ "github.com/lib/pq"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/redis/go-redis/v9"
+	_ "github.com/sijms/go-ora/v2"
 )
 
 // DatabaseDriver interface defines methods for database operations
@@ -133,6 +134,41 @@ func (d *RedisDriver) Query(query string) (QueryResult, error) {
 
 func (d *RedisDriver) Close() error {
 	return d.client.Close()
+}
+
+// OracleDriver implements DatabaseDriver for Oracle
+type OracleDriver struct {
+	db *sql.DB
+}
+
+func (d *OracleDriver) Connect(config Config) error {
+	// Use config values for connection
+	// urlOptions := map[string]string{
+	//  "SID": config.DBName, // Use DBName as SID (should be "XE")
+	// }
+	// connStr := go_ora.BuildUrl(config.Host, config.Port, "", config.User, config.Password, urlOptions)
+	// db, err := sql.Open("oracle", connStr)
+	// Use go-ora BuildUrl for Oracle connection string
+	connStr := fmt.Sprintf("oracle://%s:%s@%s:%d/%s", config.User, config.Password, config.Host, config.Port, config.DBName)
+	db, err := sql.Open("oracle", connStr)
+	if err != nil {
+		return fmt.Errorf("%s, %s", err.Error(), connStr)
+	}
+	d.db = db
+	return nil
+}
+
+func (d *OracleDriver) Query(query string) (QueryResult, error) {
+	// Remove trailing semicolon if present
+	query = strings.TrimSpace(query)
+	if strings.HasSuffix(query, ";") {
+		query = strings.TrimSuffix(query, ";")
+	}
+	return executeSQLQuery(d.db, query)
+}
+
+func (d *OracleDriver) Close() error {
+	return d.db.Close()
 }
 
 // Helper function to execute SQL queries

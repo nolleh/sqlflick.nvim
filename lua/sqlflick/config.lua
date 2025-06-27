@@ -36,6 +36,15 @@ M.opts = {
     -- 	port = 6379,
     -- 	password = "pass",
     -- },
+    -- {
+    --     name = "local_oracle",
+    --     type = "oracle",
+    --     host = "localhost",
+    --     port = 1521,
+    --     database = "orclpdb1", -- service name
+    --     username = "user",
+    --     password = "pass"
+    -- },
   },
   -- Selector window settings
   selector = {

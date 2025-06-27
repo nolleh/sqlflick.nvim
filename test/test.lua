@@ -75,6 +75,15 @@ sqlflick.setup({
       type = "sqlite",
       database = "test.db",
     },
+    {
+      name = "local_oracle",
+      type = "oracle",
+      host = "localhost",
+      port = 1521,
+      username = "system",
+      password = "oracle_password",
+      database = "FREEPDB1",
+    },
   },
   selector = {
     width = 60,

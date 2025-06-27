@@ -60,24 +60,66 @@ services:
     restart: unless-stopped
 
   vertica:
-    environment:
-      APP_DB_USER: "dbadmin"
-      APP_DB_PASSWORD:
-    container_name: vertica-ce
-    image: vertica/vertica-ce
+    # environment:
+    #   APP_DB_USER: "dbadmin"
+    #   APP_DB_PASSWORD:
+    # image: vertica/vertica-ce:11.1.0-0
+    image: vertica/vertica-ce:latest
     platform: linux/amd64
+    environment:
+      VERTICA_MEMDEBUG: 2
     ports:
       - "5433:5433"
       - "5444:5444"
-    deploy:
-      mode: global
     volumes:
-      - type: volume
-        source: vertica-data2
-        target: /data
+      - vertica_data:/home/dbadmin/VMart
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "/opt/vertica/bin/vsql",
+          "-h",
+          "localhost",
+          "-d",
+          "VMart",
+          "-U",
+          "dbadmin",
+          "-c",
+          "SELECT 1",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+
+  mongo:
+    image: mongo:7
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongo", "--eval", "db.adminCommand('ping')"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  oracle:
+    image: gvenzl/oracle-free
+    environment:
+      ORACLE_PASSWORD: oracle_password
+    ports:
+      - "1521:1521"
+    volumes:
+      - oracle_data:/opt/oracle/oradata
+    restart: unless-stopped
 
 volumes:
   postgres_data:
   mysql_data:
   redis_data:
-  vertica-data2:
+  vertica_data:
+  mongo_data:
+  oracle_data:

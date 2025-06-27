@@ -7,6 +7,7 @@ require (
 	github.com/lib/pq v1.10.9
 	github.com/mattn/go-sqlite3 v1.14.19
 	github.com/redis/go-redis/v9 v9.4.0
+	github.com/sijms/go-ora/v2 v2.9.0
 )
 
 require (

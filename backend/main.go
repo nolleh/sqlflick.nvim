@@ -11,7 +11,7 @@ import (
 	"strconv"
 )
 
-const VERSION = "0.1.2"
+const VERSION = "0.1.3"
 
 // QueryRequest represents an incoming SQL query request
 type QueryRequest struct {
@@ -54,6 +54,7 @@ var drivers = map[string]DatabaseDriver{
 	"mysql":      &MySQLDriver{},
 	"sqlite":     &SQLiteDriver{},
 	"redis":      &RedisDriver{},
+	"oracle":     &OracleDriver{},
 }
 
 // jsonErrorMiddleware wraps HTTP errors in JSON format
