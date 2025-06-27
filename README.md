@@ -115,7 +115,7 @@ The following mappings are available for SQL-related file types (e.g., `.sql`, `
 | PostgreSQL | ✅      |         |        |
 | sqlite     | ✅      |         |        |
 | Redis      | ✅      |         |        |
-| Oracle DB  |         | ✅      |        |
+| Oracle DB  | ✅      |         |        |
 | Mongo DB   |         | ✅      |        |
 | Dynamo DB  |         | ✅      |        |
 
