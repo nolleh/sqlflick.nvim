@@ -11,7 +11,7 @@ import (
 	"strconv"
 )
 
-const VERSION = "0.3.0"
+const VERSION = "0.3.1"
 
 // QueryRequest represents an incoming SQL query request
 type QueryRequest struct {

@@ -149,7 +149,8 @@ func (d *OracleDriver) Connect(config Config) error {
 	// connStr := go_ora.BuildUrl(config.Host, config.Port, "", config.User, config.Password, urlOptions)
 	// db, err := sql.Open("oracle", connStr)
 	// Use go-ora BuildUrl for Oracle connection string
-	connStr := fmt.Sprintf("oracle://%s:%s@%s:%d/%s", config.User, config.Password, config.Host, config.Port, config.DBName)
+	connStr := fmt.Sprintf("oracle://%s:%s@%s:%d/%s", config.User,
+		config.Password, config.Host, config.Port, config.DBName)
 	db, err := sql.Open("oracle", connStr)
 	if err != nil {
 		return fmt.Errorf("%s, %s", err.Error(), connStr)

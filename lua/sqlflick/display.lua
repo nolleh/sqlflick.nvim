@@ -62,6 +62,58 @@ function M.create_display_window()
     vim.api.nvim_win_close(win, true)
   end, opts)
 
+  -- Add column wrapping toggle keymap
+  vim.keymap.set("n", "W", function()
+    local query = require("sqlflick.query")
+    local column_index = query.get_column_under_cursor()
+    if column_index then
+      query.toggle_column_wrap(column_index)
+    else
+      vim.notify("Place cursor on a table column to toggle wrapping", vim.log.levels.WARN)
+    end
+  end, vim.tbl_extend("force", opts, { desc = "Toggle column word wrapping" }))
+
+  -- Add help keymap
+  vim.keymap.set("n", "?", function()
+    local help_lines = {
+      "SQLFlick Results - Keybindings:",
+      "",
+      "q - Close results window",
+      "W - Toggle word wrapping for column under cursor",
+      "? - Show this help",
+      "",
+      "Note: Place cursor on any table column and press 'W' to toggle wrapping.",
+      "Long text will be broken into multiple lines within the column.",
+    }
+
+    local help_buf = vim.api.nvim_create_buf(false, true)
+    vim.api.nvim_buf_set_lines(help_buf, 0, -1, false, help_lines)
+    vim.api.nvim_set_option_value("modifiable", false, { buf = help_buf })
+    vim.api.nvim_set_option_value("buftype", "nofile", { buf = help_buf })
+
+    -- Create floating window for help
+    local help_win = vim.api.nvim_open_win(help_buf, true, {
+      relative = "editor",
+      width = 60,
+      height = #help_lines,
+      row = math.floor((vim.o.lines - #help_lines) / 2),
+      col = math.floor((vim.o.columns - 60) / 2),
+      style = "minimal",
+      border = "rounded",
+      title = " Help ",
+      title_pos = "center",
+    })
+
+    -- Add close keymap for help window
+    vim.keymap.set("n", "q", function()
+      vim.api.nvim_win_close(help_win, true)
+    end, { buffer = help_buf, noremap = true, silent = true })
+
+    vim.keymap.set("n", "<Esc>", function()
+      vim.api.nvim_win_close(help_win, true)
+    end, { buffer = help_buf, noremap = true, silent = true })
+  end, vim.tbl_extend("force", opts, { desc = "Show help" }))
+
   return buf, win
 end
 
