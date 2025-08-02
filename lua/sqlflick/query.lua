@@ -289,8 +289,8 @@ function M.toggle_column_wrap(column_index)
 
   vim.api.nvim_set_option_value("modifiable", false, { buf = buf })
 
-  local status = M.table_data.wrapped_columns[column_index] and "wrapped" or "unwrapped"
-  vim.notify(string.format("Column '%s' %s", M.table_data.columns[column_index], status), vim.log.levels.INFO)
+  -- local status = M.table_data.wrapped_columns[column_index] and "wrapped" or "unwrapped"
+  -- vim.notify(string.format("Column '%s' %s", M.table_data.columns[column_index], status), vim.log.levels.INFO)
 end
 
 -- Format query results with column wrapping support

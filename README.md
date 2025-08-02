@@ -31,6 +31,15 @@ A lightweight Neovim plugin for executing SQL queries with minimal setup. Design
 
     ![](./docs/images/multiple_line_query.png)
 
+- **View Result with handy features**
+
+  - Column Wrap
+    - When you have large/long data that hard to catch with your eyes at once,  
+       you can use `column wrap` function to break down as muliple lines.  
+       Press `W` in column to toggle column wrap
+
+![](./docs/images/column_wrap.png)
+
 ## Installation
 
 Using [Lazy.nvim](https://github.com/folke/lazy.nvim):
@@ -101,11 +110,12 @@ Using [Lazy.nvim](https://github.com/folke/lazy.nvim):
 
 The following mappings are available for SQL-related file types (e.g., `.sql`, `.pgsql`, `.mysql`):
 
-| Command              | Mode | Key Binding  | Description                |
-| -------------------- | ---- | ------------ | -------------------------- |
-| `SQLFlickSelectDB`   | n    | `<leader>ss` | Select database connection |
-| `SQLFlickExecuteBuf` | n    | `<leader>sq` | Execute current line query |
-| `SQLFlickExecute`    | v    | `<leader>sq` | Execute selected query     |
+| Command              | Mode | Key Binding  | Description                                           |
+| -------------------- | ---- | ------------ | ----------------------------------------------------- |
+| `SQLFlickSelectDB`   | n    | `<leader>ss` | Select database connection                            |
+| `SQLFlickExecuteBuf` | n    | `<leader>sq` | Execute current line query                            |
+| `SQLFlickExecute`    | v    | `<leader>sq` | Execute selected query                                |
+| toggle column wrap   | n    | `W`          | Place your cursor to long data column, to toggle wrap |
 
 ## Supported Database
 
