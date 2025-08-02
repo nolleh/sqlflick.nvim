@@ -200,6 +200,11 @@ func executeSQLQuery(db *sql.DB, query string) (QueryResult, error) {
 			return QueryResult{}, err
 		}
 
+		for i, val := range values {
+			if bytes, ok := val.([]byte); ok {
+				values[i] = string(bytes)
+			}
+		}
 		result.Rows = append(result.Rows, values)
 	}
 
