@@ -40,6 +40,11 @@ A lightweight Neovim plugin for executing SQL queries with minimal setup. Design
 
 ![](./docs/images/column_wrap.png)
 
+- Navigating Columns
+  - For real world database, it is common table have many columns which contain many charactors.  
+     It will be hard to move cursor to next column, by moving word by word.
+    Use Navigating feature to fly on the columns
+
 ## Installation
 
 Using [Lazy.nvim](https://github.com/folke/lazy.nvim):
