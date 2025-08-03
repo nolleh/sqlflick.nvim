@@ -56,6 +56,38 @@ function M.create_display_window()
 
   -- vim.keymap.set("n", "c", M.map_column_navigator)
 
+  vim.keymap.set("n", "[c", function()
+    local query = require("sqlflick.query")
+    local cursor_column = query.get_column_under_cursor()
+    local cursor_pos = vim.api.nvim_win_get_cursor(0)
+    local line_num = cursor_pos[1]
+    if nil == cursor_column then
+      if cursor_pos[2] == 0 then
+        cursor_column = 1
+      else
+        cursor_column = query.get_column_number()
+      end
+    end
+    local column_start_pos = query.get_column_start_pos(cursor_column - 1)
+    vim.fn.cursor(line_num, column_start_pos)
+  end, { desc = "Move cursor to previous column" })
+
+  vim.keymap.set("n", "]c", function()
+    local query = require("sqlflick.query")
+    local cursor_pos = vim.api.nvim_win_get_cursor(0)
+    local line_num = cursor_pos[1]
+    local cursor_column = query.get_column_under_cursor()
+    if nil == cursor_column then
+      if cursor_pos[2] == 0 then
+        cursor_column = 1
+      else
+        cursor_column = query.get_column_number()
+      end
+    end
+    local column_start_pos = query.get_column_start_pos(cursor_column + 1)
+    vim.fn.cursor(line_num, column_start_pos)
+  end, { desc = "Move cursor to next column" })
+
   vim.keymap.set("n", "W", function()
     local query = require("sqlflick.query")
     local column_index = query.get_column_under_cursor()
@@ -119,7 +151,7 @@ function M.map_column_navigator()
       local cursor_pos = vim.api.nvim_win_get_cursor(0)
       local line_num = cursor_pos[1]
       vim.fn.cursor(line_num, column_start_pos)
-    end)
+    end, { desc = "Navigate cursor to column" })
   end
 end
 

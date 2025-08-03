@@ -131,10 +131,13 @@ The following mappings are available for SQL-related file types (e.g., `.sql`, `
 | `SQLFlickExecute`    | v    | `<leader>sq` | Execute selected query     |
 
 The following mappings are available in specific pages. (not user command)
-| name | mode |Key binding | runnable view | description |
-| ------------------ | ----|- | ------------- | ----------------------------------------------------- |
-| Toggle column wrap | n | `W`| result view | Place your cursor to long data column, to toggle wrap |
-| Navigate column | n | `c{i}` | result view | Navigate cursor to specified column number |
+
+| name               | mode | Key binding | runnable view | description                                           |
+| ------------------ | ---- | ----------- | ------------- | ----------------------------------------------------- |
+| Toggle column wrap | n    | `W`         | result view   | Place your cursor to long data column, to toggle wrap |
+| Navigate column    | n    | `c{i}`      | result view   | Navigate cursor to specified column number            |
+| Previous column    | n    | `[c`        | result view   | Navigate cursor to previous column                    |
+| Next column        | n    | `]c`        | result view   | Navigate cursor to next column                        |
 
 ## Supported Database
 

@@ -177,7 +177,7 @@ end
 
 function M.get_column_number()
   if not M.table_data then
-    return nil
+    return 0
   end
 
   return #M.table_data.columns
@@ -186,7 +186,11 @@ end
 ---@param i integer
 function M.get_column_start_pos(i)
   if not M.table_data then
-    return nil
+    return 0
+  end
+
+  if #M.table_data.column_start_pos < i or i < 1 then
+    return 0
   end
 
   return M.table_data.column_start_pos[i]
