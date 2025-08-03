@@ -79,13 +79,13 @@ function M.format_query_results(result)
     return { "No results" }
   end
 
-  if not result.columns or not result.rows then
-    return { "No results" }
-  end
-
   -- Handle DDL commands (like DROP TABLE) that return userdata
   if type(result.columns) == "userdata" then
     return { "Command executed successfully" }
+  end
+
+  if not result.columns or not result.rows then
+    return { "No results" }
   end
 
   -- Store table data for later manipulation
@@ -95,7 +95,6 @@ function M.format_query_results(result)
     wrapped_columns = {}, -- Track which columns are wrapped
   }
 
-  -- Calculate column widths with limits
   local col_widths = {}
   for i, col in ipairs(result.columns) do
     local header_width = vim.fn.strdisplaywidth(col)
@@ -106,17 +105,14 @@ function M.format_query_results(result)
       max_data_width = math.max(max_data_width, vim.fn.strdisplaywidth(val))
     end
 
-    -- Apply width limits
     local ideal_width = math.max(header_width, max_data_width)
     col_widths[i] = math.max(MIN_COLUMN_WIDTH, math.min(MAX_COLUMN_WIDTH, ideal_width))
   end
 
-  -- Add some padding
   for i, width in ipairs(col_widths) do
     col_widths[i] = width + 2 -- Add 2 spaces of padding
   end
 
-  -- Format header
   local function create_line(left, mid, right)
     local line = left
     for i, width in ipairs(col_widths) do
@@ -126,12 +122,10 @@ function M.format_query_results(result)
     return line
   end
 
-  -- Create borders
   local top = create_line("┌", "┬", "┐")
   local mid = create_line("├", "┼", "┤")
   local bot = create_line("└", "┴", "┘")
 
-  -- Create header
   local header = "│"
   for i, col in ipairs(result.columns) do
     local truncated_col = truncate_text(col, col_widths[i] - 2) -- -2 for padding
@@ -163,7 +157,6 @@ function M.format_query_results(result)
   return lines
 end
 
--- Function to get the column index under cursor
 function M.get_column_under_cursor()
   if not M.table_data then
     return nil
@@ -173,7 +166,6 @@ function M.get_column_under_cursor()
   local line_num = cursor_pos[1]
   local col_num = cursor_pos[2] + 1 -- Convert to 1-based
 
-  -- Get the current line
   local lines = vim.api.nvim_buf_get_lines(0, line_num - 1, line_num, false)
   if #lines == 0 then
     return nil
@@ -186,7 +178,6 @@ function M.get_column_under_cursor()
     return nil
   end
 
-  -- Find all column separator positions using string.find
   local separator_positions = {}
   local start_pos = 1
   while true do
@@ -213,11 +204,9 @@ function M.get_column_under_cursor()
     end
   end
 
-  -- If cursor is not between any separators, return nil
   return nil
 end
 
--- Function to toggle word wrapping for a specific column
 function M.toggle_column_wrap(column_index)
   if not M.table_data then
     vim.notify("No table data available", vim.log.levels.WARN)
@@ -229,10 +218,8 @@ function M.toggle_column_wrap(column_index)
     return
   end
 
-  -- Toggle the wrapped state
   M.table_data.wrapped_columns[column_index] = not M.table_data.wrapped_columns[column_index]
 
-  -- Re-render the table
   local new_result = {
     columns = M.table_data.columns,
     rows = M.table_data.rows,
@@ -240,7 +227,6 @@ function M.toggle_column_wrap(column_index)
 
   local formatted_lines = M.format_query_results_with_wrapping(new_result)
 
-  -- Update the current buffer
   local buf = vim.api.nvim_get_current_buf()
   vim.api.nvim_set_option_value("modifiable", true, { buf = buf })
 
@@ -255,7 +241,6 @@ function M.toggle_column_wrap(column_index)
     end
   end
 
-  -- Replace the table content
   vim.api.nvim_buf_set_lines(buf, table_start - 1, -1, false, formatted_lines)
 
   -- Reapply highlights to preserve syntax highlighting
@@ -264,7 +249,9 @@ function M.toggle_column_wrap(column_index)
 
   for i, line in ipairs(formatted_lines) do
     local row = table_start - 1 + i
-    if line:match("^┌") or line:match("^├") or line:match("^└") or line:match("^╟") then
+    if line:match("^┌") or line:match("^├") then
+      vim.hl.range(buf, ns_id, "SQLFlickHeader", { row - 1, 0 }, { row - 1, -1 })
+    elseif line:match("^└") or line:match("^╟") then
       -- Border lines (including row separators)
       vim.hl.range(buf, ns_id, "SQLFlickHeaderSep", { row - 1, 0 }, { row - 1, -1 })
     elseif line:match("^│") then

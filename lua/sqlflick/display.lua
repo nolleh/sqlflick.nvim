@@ -32,14 +32,12 @@ function M.create_display_window()
   local win = vim.api.nvim_get_current_win()
   vim.api.nvim_win_set_buf(win, buf)
 
-  -- Set window options
   vim.api.nvim_set_option_value("number", true, { win = win })
   vim.api.nvim_set_option_value("relativenumber", false, { win = win })
   vim.api.nvim_set_option_value("wrap", false, { win = win })
   vim.api.nvim_set_option_value("signcolumn", "no", { win = win })
   vim.api.nvim_set_option_value("winhighlight", "Normal:Normal,FloatBorder:Normal", { win = win })
 
-  -- Create tab line with padding
   local tab_line = "▎ Results "
   vim.api.nvim_buf_set_lines(buf, 0, 1, false, { tab_line })
 
@@ -50,14 +48,12 @@ function M.create_display_window()
   vim.api.nvim_buf_set_lines(buf, 1, 2, false, { string.rep("─", vim.api.nvim_win_get_width(win)) })
   vim.hl.range(buf, ns_id, "SQLFlickTabLineFill", { 1, 0 }, { 1, -1 })
 
-  -- Add keymaps
   local opts = { buffer = buf, noremap = true, silent = true }
   vim.keymap.set("n", "q", function()
     vim.cmd("wincmd p")
     vim.api.nvim_win_close(win, true)
   end, opts)
 
-  -- Add column wrapping toggle keymap
   vim.keymap.set("n", "W", function()
     local query = require("sqlflick.query")
     local column_index = query.get_column_under_cursor()
@@ -68,7 +64,6 @@ function M.create_display_window()
     end
   end, vim.tbl_extend("force", opts, { desc = "Toggle column word wrapping" }))
 
-  -- Add help keymap
   vim.keymap.set("n", "?", function()
     local help_lines = {
       "SQLFlick Results - Keybindings:",
