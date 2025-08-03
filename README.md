@@ -124,12 +124,17 @@ Using [Lazy.nvim](https://github.com/folke/lazy.nvim):
 
 The following mappings are available for SQL-related file types (e.g., `.sql`, `.pgsql`, `.mysql`):
 
-| Command              | Mode | Key Binding  | Description                                           |
-| -------------------- | ---- | ------------ | ----------------------------------------------------- |
-| `SQLFlickSelectDB`   | n    | `<leader>ss` | Select database connection                            |
-| `SQLFlickExecuteBuf` | n    | `<leader>sq` | Execute current line query                            |
-| `SQLFlickExecute`    | v    | `<leader>sq` | Execute selected query                                |
-| toggle column wrap   | n    | `W`          | Place your cursor to long data column, to toggle wrap |
+| Command              | Mode | Key Binding  | Description                |
+| -------------------- | ---- | ------------ | -------------------------- |
+| `SQLFlickSelectDB`   | n    | `<leader>ss` | Select database connection |
+| `SQLFlickExecuteBuf` | n    | `<leader>sq` | Execute current line query |
+| `SQLFlickExecute`    | v    | `<leader>sq` | Execute selected query     |
+
+The following mappings are available in specific pages. (not user command)
+| name | mode |Key binding | runnable view | description |
+| ------------------ | ----|- | ------------- | ----------------------------------------------------- |
+| Toggle column wrap | n | `W`| result view | Place your cursor to long data column, to toggle wrap |
+| Navigate column | n | `c{i}` | result view | Navigate cursor to specified column number |
 
 ## Supported Database
 
