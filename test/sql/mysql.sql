@@ -73,6 +73,14 @@ WHERE USERNAME LIKE '%long%'
    OR PASSWORD LIKE '%long%'
 ORDER BY CREATED_ON DESC;
 
+SELECT USERNAME as "Very Long Column Header That Should Test Word Wrap",
+       PASSWORD as "Another Extremely Long Column Header For Testing Display",
+       EMAIL as "Yet Another Long Column Header To Verify Word Wrap Functionality",
+       CREATED_ON as "Creation Timestamp With Long Header",
+       LAST_LOGIN as "Last Login Time With Extended Header Name"
+FROM ACCOUNT_TEST
+ORDER BY CREATED_ON DESC;
+
 -- Create table with varied column widths for word wrap testing
 DROP TABLE IF EXISTS WORDWRAP_TEST;
 CREATE TABLE WORDWRAP_TEST (

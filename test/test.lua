@@ -94,7 +94,7 @@ sqlflick.setup({
 
   display = {
     column = {
-      max_width = 200,
+      -- max_width = 10,
     },
   },
 

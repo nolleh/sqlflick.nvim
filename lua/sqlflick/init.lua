@@ -174,7 +174,6 @@ end
 
 -- Setup function that will be called by users
 function M.setup(opts)
-  -- Set up configuration
   config.setup(opts)
 
   -- Check and install dependencies
@@ -185,11 +184,11 @@ function M.setup(opts)
     end
   end
 
-  -- Ensure backend is installed
   install.ensure_installed()
 
-  -- Set up custom highlights
   highlights.setup()
+
+  query.setup(config.opts)
 
   -- Create display commands
   vim.api.nvim_create_user_command("SQLFlickDebug", function()

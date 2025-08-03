@@ -3,11 +3,13 @@ local M = {}
 -- Store table data for manipulation (word wrapping, etc.)
 M.table_data = nil
 
-local config = require("sqlflick.config")
+M.MAX_COLUMN_WIDTH = 200 -- Maximum width for any column
+M.MIN_COLUMN_WIDTH = 0 -- Minimum width for readability
 
--- Configuration
-local MAX_COLUMN_WIDTH = math.max(config.opts.display.column.max_width, 200) -- Maximum width for any column
-local MIN_COLUMN_WIDTH = math.min(config.opts.display.column.min_width, 0) -- Minimum width for readability
+function M.setup(opts)
+  M.MAX_COLUMN_WIDTH = math.min(opts.display.column.max_width, M.MAX_COLUMN_WIDTH)
+  M.MIN_COLUMN_WIDTH = math.max(opts.display.column.min_width, M.MIN_COLUMN_WIDTH)
+end
 
 -- Helper function to truncate text and add ellipsis if needed
 local function truncate_text(text, max_width)
@@ -108,7 +110,7 @@ function M.format_query_results(result)
     end
 
     local ideal_width = math.max(header_width, max_data_width)
-    col_widths[i] = math.max(MIN_COLUMN_WIDTH, math.min(MAX_COLUMN_WIDTH, ideal_width))
+    col_widths[i] = math.max(M.MIN_COLUMN_WIDTH, math.min(M.MAX_COLUMN_WIDTH, ideal_width))
   end
 
   for i, width in ipairs(col_widths) do
@@ -315,7 +317,7 @@ function M.format_query_results_with_wrapping(result)
     end
 
     local ideal_width = math.max(header_width, max_data_width)
-    col_widths[i] = math.max(MIN_COLUMN_WIDTH, math.min(MAX_COLUMN_WIDTH, ideal_width)) + 2
+    col_widths[i] = math.max(M.MIN_COLUMN_WIDTH, math.min(M.MAX_COLUMN_WIDTH, ideal_width)) + 2
   end
 
   -- Format header and borders
