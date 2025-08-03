@@ -48,20 +48,34 @@ Using [Lazy.nvim](https://github.com/folke/lazy.nvim):
 > When update the plugin and if there is some problem, recommend to run `SQLFlickInstall`
 
 ```lua
-{
+{,
     "nolleh/sqlflick.nvim",
     config = function()
         require("sqlflick").setup({
-            -- Configuration options (see below)
+            databases = {
+                {
+                    name = "local_mysql",
+                    type = "mysql",
+                    host = "localhost",
+                    port = 3306,
+                    database = "mydb",
+                    username = "user",
+                    password = "pass"
+                },
+            },
         })
     end,
     -- recommended load plugin option
     cmd = { "SQLFlickSelectDB", "SQLFlickExecute", "SQLFlickExecuteBuf", "SQLFlickInstall", "SQLFlickRestart" },
-    ft = { "sql" },
+    -- If you want to load/enable the plugin only for specific file_type, use this
+    ft = { "sql", "pgsql" },
 }
 ```
 
 ## Configuration
+
+[full-configuration](./lua/sqlflick/config.lua)
+[example-confiruation](./test/test.lua)
 
 ```lua
 {
@@ -101,7 +115,7 @@ Using [Lazy.nvim](https://github.com/folke/lazy.nvim):
     -- Backend settings
     backend = {
         host = "localhost",
-        port = 8080,
+        port = 9081 -- use some unknown port that not conflicting with your environment
     },
 }
 ```
@@ -131,10 +145,30 @@ The following mappings are available for SQL-related file types (e.g., `.sql`, `
 
 ## Trouble Shoot
 
+### Migration
+
 > [!NOTE]
 > When update the plugin and if there is some problem, recommend to run `SQLFlickInstall`
 
 If this is not sufficient to your situation and it occured after update the plugin, plz refer [WIKI/Migration-Guide](https://github.com/nolleh/sqlflick.nvim/wiki/Migration-Guide)
+
+### Debug Command
+
+You can use debug command with `:SQLFlickDebug` after plugin is loaded, which will print similar information with following.
+
+```bash
+SQLFlick Debug Info:
+Enabled: true
+Backend version:  0.3.1
+Backend install path: /Users/nolleh/.local/share/nvim/sqlflick/bin/sqlflick-backend
+Backend port: 9091
+Number of databases: 4
+- local_postgres (postgresql)
+- local_mysql (mysql)
+- local_redis (redis)
+- local_sqlite (sqlite)
+
+```
 
 ## Contributing
 
