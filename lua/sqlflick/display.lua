@@ -54,6 +54,8 @@ function M.create_display_window()
     vim.api.nvim_win_close(win, true)
   end, opts)
 
+  -- vim.keymap.set("n", "c", M.map_column_navigator)
+
   vim.keymap.set("n", "W", function()
     local query = require("sqlflick.query")
     local column_index = query.get_column_under_cursor()
@@ -105,6 +107,20 @@ function M.create_display_window()
   end, vim.tbl_extend("force", opts, { desc = "Show help" }))
 
   return buf, win
+end
+
+function M.map_column_navigator()
+  local query = require("sqlflick.query")
+  local col_num = query.get_column_number()
+
+  for i = 1, col_num do
+    vim.keymap.set("n", "c" .. i, function()
+      local column_start_pos = query.get_column_start_pos(i)
+      local cursor_pos = vim.api.nvim_win_get_cursor(0)
+      local line_num = cursor_pos[1]
+      vim.fn.cursor(line_num, column_start_pos)
+    end)
+  end
 end
 
 -- Display query results in display window

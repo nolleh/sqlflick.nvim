@@ -1,6 +1,11 @@
 local M = {}
 
 -- Store table data for manipulation (word wrapping, etc.)
+---@class TableData
+---@field rows table
+---@field columns table
+---@field column_start_pos table
+---@field wrapped_columns table
 M.table_data = nil
 
 M.MAX_COLUMN_WIDTH = 200 -- Maximum width for any column
@@ -97,6 +102,7 @@ function M.format_query_results(result)
     columns = result.columns,
     rows = result.rows,
     wrapped_columns = {}, -- Track which columns are wrapped
+    column_start_pos = {},
   }
 
   local col_widths = {}
@@ -137,6 +143,14 @@ function M.format_query_results(result)
       .. truncated_col
       .. string.rep(" ", col_widths[i] - vim.fn.strdisplaywidth(truncated_col) - 1)
     header = header .. padded_col .. "│"
+
+    local prev_pos = 1
+    local prev_col_width = 0
+    if i > 1 then
+      prev_pos = M.table_data.column_start_pos[i - 1]
+      prev_col_width = col_widths[i - 1]
+    end
+    M.table_data.column_start_pos[i] = prev_pos + prev_col_width + 2 + 1
   end
 
   table.insert(lines, top)
@@ -159,6 +173,23 @@ function M.format_query_results(result)
   table.insert(lines, bot)
 
   return lines
+end
+
+function M.get_column_number()
+  if not M.table_data then
+    return nil
+  end
+
+  return #M.table_data.columns
+end
+
+---@param i integer
+function M.get_column_start_pos(i)
+  if not M.table_data then
+    return nil
+  end
+
+  return M.table_data.column_start_pos[i]
 end
 
 function M.get_column_under_cursor()
@@ -384,6 +415,14 @@ function M.format_query_results_with_wrapping(result)
         local text = row_lines[i][line_idx] or ""
         local padded_text = " " .. text .. string.rep(" ", col_widths[i] - vim.fn.strdisplaywidth(text) - 1)
         line = line .. padded_text .. "│"
+
+        local prev_pos = 1
+        local prev_col_width = 0
+        if i > 1 then
+          prev_pos = M.table_data.column_start_pos[i - 1]
+          prev_col_width = col_widths[i - 1]
+        end
+        M.table_data.column_start_pos[i] = prev_pos + prev_col_width + 2 + 1
       end
       table.insert(lines, line)
     end
