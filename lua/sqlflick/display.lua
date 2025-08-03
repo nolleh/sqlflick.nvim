@@ -1,17 +1,13 @@
 local M = {}
 
-local config = require("sqlflick.config")
-
 -- Create display window with tabs
 function M.create_display_window()
   -- Create new buffer
   local buf = vim.api.nvim_create_buf(false, true)
 
-  -- Get display configuration
   local config = require("sqlflick.config").opts.display
   local position = config.position or "bottom"
 
-  -- Calculate window dimensions
   local win_height, win_width
   if config.size_absolute.height then
     win_height = config.size_absolute.height
@@ -25,7 +21,6 @@ function M.create_display_window()
     win_width = math.floor(vim.o.columns * config.size.width)
   end
 
-  -- Create split based on position
   if position == "bottom" then
     vim.cmd(win_height .. "split")
     vim.cmd("wincmd J") -- Move to bottom
@@ -48,12 +43,12 @@ function M.create_display_window()
   local tab_line = "▎ Results "
   vim.api.nvim_buf_set_lines(buf, 0, 1, false, { tab_line })
 
-  -- Highlight tab line with custom highlights
-  vim.api.nvim_buf_add_highlight(buf, -1, "SQLFlickTabLineSel", 0, 0, #tab_line)
+  local ns_id = vim.api.nvim_create_namespace("sqlflick")
+  vim.hl.range(buf, ns_id, "SQLFlickTabLineSel", { 0, 0 }, { 0, #tab_line })
 
   -- Add separator line below tab
   vim.api.nvim_buf_set_lines(buf, 1, 2, false, { string.rep("─", vim.api.nvim_win_get_width(win)) })
-  vim.api.nvim_buf_add_highlight(buf, -1, "SQLFlickTabLineFill", 1, 0, -1)
+  vim.hl.range(buf, ns_id, "SQLFlickTabLineFill", { 1, 0 }, { 1, -1 })
 
   -- Add keymaps
   local opts = { buffer = buf, noremap = true, silent = true }
@@ -118,7 +113,7 @@ function M.create_display_window()
 end
 
 -- Display query results in display window
-function M.display_results(buf, win, error, query, results)
+function M.display_results(buf, _, error, query, results)
   -- Set buffer content
   vim.api.nvim_set_option_value("modifiable", true, { buf = buf })
 
@@ -165,27 +160,22 @@ function M.display_results(buf, win, error, query, results)
   vim.api.nvim_buf_set_lines(buf, 2, -1, false, lines)
   vim.api.nvim_set_option_value("modifiable", false, { buf = buf })
 
-  -- Apply syntax highlighting
   local ns_id = vim.api.nvim_create_namespace("sqlflick")
-  for i, line in ipairs(lines) do
+  for i, _ in ipairs(lines) do
     local row = i + 2 -- Account for tab line and separator
     if error then
       -- print(string.format("Processing line %d of %d total lines (query_lines: %d)", i, #lines, query_lines))
       if i > query_lines then
         -- print(string.format("Applying error highlight to line %d", row))
-        -- Use SQLFlickError highlight group for error messages
-        vim.api.nvim_buf_add_highlight(buf, ns_id, "SQLFlickError", row - 1, 0, -1)
+        vim.hl.range(buf, ns_id, "SQLFlickError", { row - 1, 0 }, { row - 1, -1 })
       else
-        -- Highlight query lines normally
-        vim.api.nvim_buf_add_highlight(buf, ns_id, "SQLFlickCell", row - 1, 0, -1)
+        vim.hl.range(buf, ns_id, "SQLFlickCell", { row - 1, 0 }, { row - 1, -1 })
       end
     else
       if i > query_lines and i < query_lines + 4 then
-        -- Header line
-        vim.api.nvim_buf_add_highlight(buf, ns_id, "SQLFlickHeader", row - 1, 0, -1)
+        vim.hl.range(buf, ns_id, "SQLFlickHeader", { row - 1, 0 }, { row - 1, -1 })
       else
-        -- Data cells
-        vim.api.nvim_buf_add_highlight(buf, ns_id, "SQLFlickCell", row - 1, 0, -1)
+        vim.hl.range(buf, ns_id, "SQLFlickCell", { row - 1, 0 }, { row - 1, -1 })
       end
     end
   end

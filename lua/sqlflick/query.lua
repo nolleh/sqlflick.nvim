@@ -1,7 +1,5 @@
 local M = {}
 
-local config = require("sqlflick.config")
-
 -- Store table data for manipulation (word wrapping, etc.)
 M.table_data = nil
 
@@ -268,7 +266,7 @@ function M.toggle_column_wrap(column_index)
     local row = table_start - 1 + i
     if line:match("^┌") or line:match("^├") or line:match("^└") or line:match("^╟") then
       -- Border lines (including row separators)
-      vim.api.nvim_buf_add_highlight(buf, ns_id, "SQLFlickHeaderSep", row - 1, 0, -1)
+      vim.hl.range(buf, ns_id, "SQLFlickHeaderSep", { row - 1, 0 }, { row - 1, -1 })
     elseif line:match("^│") then
       -- Check if it's a header line (contains column names)
       local is_header = false
@@ -280,9 +278,9 @@ function M.toggle_column_wrap(column_index)
       end
 
       if is_header then
-        vim.api.nvim_buf_add_highlight(buf, ns_id, "SQLFlickHeader", row - 1, 0, -1)
+        vim.hl.range(buf, ns_id, "SQLFlickHeader", { row - 1, 0 }, { row - 1, -1 })
       else
-        vim.api.nvim_buf_add_highlight(buf, ns_id, "SQLFlickCell", row - 1, 0, -1)
+        vim.hl.range(buf, ns_id, "SQLFlickCell", { row - 1, 0 }, { row - 1, -1 })
       end
     end
   end
