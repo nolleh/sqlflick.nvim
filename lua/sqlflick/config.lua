@@ -67,7 +67,7 @@ M.opts = {
   -- Backend settings
   backend = {
     host = "localhost",
-    port = 8080,
+    port = 9081,
   },
 }
 
