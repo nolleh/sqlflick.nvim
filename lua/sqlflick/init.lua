@@ -198,6 +198,7 @@ function M.setup(opts)
     print("Backend version: ", install.version())
     print("Backend source dir:", install.source_path())
     print("Backend install path:", install.bin())
+    print("Backend port:", config.opts.backend.port)
     print("Number of databases:", #config.opts.databases)
     for _, db in ipairs(config.opts.databases) do
       print(string.format("- %s (%s)", db.name, db.type))
