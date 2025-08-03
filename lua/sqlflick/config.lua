@@ -63,6 +63,10 @@ M.opts = {
       height = nil, -- Absolute height in lines, overrides size.height when set
       width = nil, -- Absolute width in columns, overrides size.width when set
     },
+    column = {
+      min_width = 8, -- column's minimum width size for guarentees readability
+      max_width = 100, -- column's maximum width size. If user configured over 200, 200 is applied.
+    },
   },
   -- Backend settings
   backend = {

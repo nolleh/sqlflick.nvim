@@ -3,9 +3,11 @@ local M = {}
 -- Store table data for manipulation (word wrapping, etc.)
 M.table_data = nil
 
+local config = require("sqlflick.config")
+
 -- Configuration
-local MAX_COLUMN_WIDTH = 200 -- Maximum width for any column
-local MIN_COLUMN_WIDTH = 8 -- Minimum width for readability
+local MAX_COLUMN_WIDTH = math.max(config.opts.display.column.max_width, 200) -- Maximum width for any column
+local MIN_COLUMN_WIDTH = math.min(config.opts.display.column.min_width, 0) -- Minimum width for readability
 
 -- Helper function to truncate text and add ellipsis if needed
 local function truncate_text(text, max_width)

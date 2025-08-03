@@ -85,11 +85,19 @@ sqlflick.setup({
       database = "FREEPDB1",
     },
   },
+
   selector = {
     width = 60,
     height = 20,
     border = "rounded",
   },
+
+  display = {
+    column = {
+      max_width = 200,
+    },
+  },
+
   backend = {
     host = "localhost",
     port = 9091,
