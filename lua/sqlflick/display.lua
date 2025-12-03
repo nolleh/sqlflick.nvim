@@ -98,7 +98,48 @@ function M.create_display_window()
     end
   end, vim.tbl_extend("force", opts, { desc = "Toggle column word wrapping" }))
 
+  -- Add pagination keymaps
+  local pagination = require("sqlflick.pagination")
+  local sqlflick = require("sqlflick")
+
+  vim.keymap.set("n", "<C-n>", function()
+    if pagination.is_enabled() and pagination.next_page() then
+      sqlflick.refresh_current_page()
+    end
+  end, vim.tbl_extend("force", opts, { desc = "Next page" }))
+
+  vim.keymap.set("n", "<C-p>", function()
+    if pagination.is_enabled() and pagination.prev_page() then
+      sqlflick.refresh_current_page()
+    end
+  end, vim.tbl_extend("force", opts, { desc = "Previous page" }))
+
+  vim.keymap.set("n", "<C-h>", function()
+    if pagination.is_enabled() and pagination.first_page() then
+      sqlflick.refresh_current_page()
+    end
+  end, vim.tbl_extend("force", opts, { desc = "First page" }))
+
+  vim.keymap.set("n", "<C-l>", function()
+    if pagination.is_enabled() and pagination.last_page() then
+      sqlflick.refresh_current_page()
+    end
+  end, vim.tbl_extend("force", opts, { desc = "Last page" }))
+
+  vim.keymap.set("n", "<C-u>", function()
+    if pagination.is_enabled() and pagination.skip_pages_backward(10) then
+      sqlflick.refresh_current_page()
+    end
+  end, vim.tbl_extend("force", opts, { desc = "Skip 10 pages backward" }))
+
+  vim.keymap.set("n", "<C-d>", function()
+    if pagination.is_enabled() and pagination.skip_pages_forward(10) then
+      sqlflick.refresh_current_page()
+    end
+  end, vim.tbl_extend("force", opts, { desc = "Skip 10 pages forward" }))
+
   vim.keymap.set("n", "?", function()
+    local pagination_enabled = pagination.is_enabled()
     local help_lines = {
       "SQLFlick Results - Keybindings:",
       "",
@@ -106,9 +147,18 @@ function M.create_display_window()
       "W - Toggle word wrapping for column under cursor",
       "? - Show this help",
       "",
-      "Note: Place cursor on any table column and press 'W' to toggle wrapping.",
-      "Long text will be broken into multiple lines within the column.",
     }
+
+    if pagination_enabled then
+      table.insert(help_lines, "Pagination:")
+      table.insert(help_lines, "  Ctrl+N/P - Next/Previous page")
+      table.insert(help_lines, "  Ctrl+H/L - First/Last page")
+      table.insert(help_lines, "  Ctrl+U/D - Skip 10 pages backward/forward")
+      table.insert(help_lines, "")
+    end
+
+    table.insert(help_lines, "Note: Place cursor on any table column and press 'W' to toggle wrapping.")
+    table.insert(help_lines, "Long text will be broken into multiple lines within the column.")
 
     local help_buf = vim.api.nvim_create_buf(false, true)
     vim.api.nvim_buf_set_lines(help_buf, 0, -1, false, help_lines)
@@ -161,6 +211,7 @@ function M.display_results(buf, _, error, query, results)
   vim.api.nvim_set_option_value("modifiable", true, { buf = buf })
 
   local lines = {}
+  local pagination = require("sqlflick.pagination")
 
   -- Convert results to strings if it's an array
   local function normalize_string(str)
@@ -187,6 +238,16 @@ function M.display_results(buf, _, error, query, results)
     vim.list_extend(lines, query_lines)
   end
   local query_lines = #lines
+
+  -- Add pagination info if enabled
+  if pagination.is_enabled() then
+    local pagination_info = pagination.get_info_string()
+    if pagination_info ~= "" then
+      table.insert(lines, "")
+      table.insert(lines, pagination_info)
+      table.insert(lines, "")
+    end
+  end
 
   if type(results) == "table" then
     for _, result in ipairs(results) do

@@ -17,14 +17,12 @@ if not ok then
   -- Fallback to using curl
   http = {
     request = function(method, url, opts)
-      -- Check if curl is available
       local curl_check = vim.fn.system("which curl")
       if vim.v.shell_error ~= 0 then
         vim.notify("Neither lua-http nor curl is available. Please install one of them.", vim.log.levels.ERROR)
         return nil
       end
 
-      -- Use curl as fallback
       local cmd = string.format(
         'curl -s -X %s -H "Content-Type: application/json" -d "%s" %s',
         method,
@@ -45,7 +43,6 @@ end
 ---Check if backend process is already running
 ---@return boolean, number?, number? _ is running, port number if found, pid if found
 local function check_existing_process()
-  -- Try to find existing process
   local pgrep = vim.fn.system("pgrep -f sqlflick-backend")
   if vim.v.shell_error ~= 0 then
     return false
@@ -154,6 +151,68 @@ function Handler:execute_query(query, db_config, backend_config)
   json_str = json_str:gsub('\\"', "'")
 
   -- Use HTTP client (either lua-http or curl fallback)
+  local response = http.request("POST", url, {
+    headers = {
+      ["Content-Type"] = "application/json",
+    },
+    body = json_str,
+  })
+
+  if not response then
+    vim.notify("Failed to connect to backend", vim.log.levels.ERROR)
+    return { error = "Failed to connect to backend" }
+  end
+
+  local result = vim.fn.json_decode(response.body)
+  if result.error then
+    vim.notify("Query failed: " .. result.error, vim.log.levels.ERROR)
+    return result
+  end
+
+  return result
+end
+
+---Execute a query with pagination through the backend
+---@param query string
+---@param db_config table
+---@param backend_config table
+---@param limit number|nil
+---@param offset number|nil
+---@return table result
+function Handler:execute_query_with_pagination(query, db_config, backend_config, limit, offset)
+  if not self.process then
+    self:ensure_running()
+  end
+
+  local url = string.format("http://%s:%d/query", backend_config.host, backend_config.port)
+
+  -- Create the data structure
+  local data = {
+    database = db_config.type,
+    query = query,
+    config = {
+      host = db_config.host,
+      port = db_config.port,
+      user = db_config.username,
+      password = db_config.password,
+      dbname = db_config.database,
+    },
+  }
+
+  if limit then
+    data.limit = limit
+  end
+  if offset then
+    data.offset = offset
+  end
+
+  -- Encode the data without escaping backslashes
+  local json_str = vim.fn.json_encode(data)
+  -- Remove the extra escaping of backslashes
+  json_str = json_str:gsub("\\\\", "\\")
+  -- Ensure single quotes are preserved
+  json_str = json_str:gsub('\\"', "'")
+
   local response = http.request("POST", url, {
     headers = {
       ["Content-Type"] = "application/json",

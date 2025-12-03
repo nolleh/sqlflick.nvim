@@ -97,6 +97,13 @@ INSERT INTO WORDWRAP_TEST (SHORT_COL, MEDIUM_COL, LONG_COL, EXTRA_LONG_COL) VALU
 ('XY', 'Another medium text', 'Another long text entry that should also cause word wrapping when the column width is constrained by the terminal or display window size', 'Another extremely long text entry for comprehensive testing of word wrap functionality. This text should also span multiple lines and test how the cursor detection works when navigating through wrapped content in different columns.'),
 ('DEFGH', 'Short text', 'Medium length text that might or might not wrap depending on the display width and column sizing algorithm used by the plugin', 'Final long text entry to test word wrapping behavior with varied content lengths across all columns in the same row.');
 
+
+INSERT INTO WORDWRAP_TEST (SHORT_COL, MEDIUM_COL, LONG_COL, EXTRA_LONG_COL) VALUES
+('ABC', 'Medium length text content here', 'TEST11', 'TEST!');
+
+DELETE FROM WORDWRAP_TEST WHERE LONG_COL = 'TEST11';
+
+
 -- Test queries for word wrap cursor detection
 SELECT * FROM WORDWRAP_TEST;
 SELECT SHORT_COL, MEDIUM_COL FROM WORDWRAP_TEST;
