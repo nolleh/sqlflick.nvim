@@ -1,5 +1,10 @@
 sqlflick-backend
 
+## demo
+palette.png
+*.mov
+
+## editor / env
 *.swp
 *.DS_Store
 test.db
