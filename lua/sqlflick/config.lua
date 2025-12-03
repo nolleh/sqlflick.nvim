@@ -73,6 +73,10 @@ M.opts = {
     host = "localhost",
     port = 9081,
   },
+  -- Pagination settings
+  pagination = {
+    page_size = 20, -- Default number of rows per page
+  },
 }
 
 local function show_deprecation_popup(msg)

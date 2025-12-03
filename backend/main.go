@@ -11,13 +11,15 @@ import (
 	"strconv"
 )
 
-const VERSION = "0.3.1"
+const VERSION = "0.3.2"
 
 // QueryRequest represents an incoming SQL query request
 type QueryRequest struct {
 	Database string `json:"database"`
 	Query    string `json:"query"`
 	Config   Config `json:"config"`
+	Limit    *int   `json:"limit,omitempty"`  // Optional limit for pagination
+	Offset   *int   `json:"offset,omitempty"` // Optional offset for pagination
 }
 
 // UnmarshalJSON implements custom JSON unmarshaling for QueryRequest
@@ -107,9 +109,6 @@ func handleQuery(w http.ResponseWriter, r *http.Request) {
 	// Restore the body for later use
 	r.Body = io.NopCloser(bytes.NewBuffer(body))
 
-	// Debug log the raw request body
-	fmt.Printf("Raw request body: %s\n", string(body))
-
 	var req QueryRequest
 	if err := json.NewDecoder(bytes.NewBuffer(body)).Decode(&req); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -130,8 +129,13 @@ func handleQuery(w http.ResponseWriter, r *http.Request) {
 	}
 	defer driver.Close()
 
-	// Execute query
-	result, err := driver.Query(req.Query)
+	// Execute query with pagination if provided
+	var result QueryResult
+	if req.Limit != nil || req.Offset != nil {
+		result, err = driver.QueryWithPagination(req.Query, req.Limit, req.Offset)
+	} else {
+		result, err = driver.Query(req.Query)
+	}
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Query failed: %v", err), http.StatusInternalServerError)
 		return

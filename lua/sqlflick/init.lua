@@ -12,6 +12,7 @@ local highlights = require("sqlflick.highlights")
 local install = require("sqlflick.install")
 local deps = require("sqlflick.deps")
 local cache = require("sqlflick.cache")
+local pagination = require("sqlflick.pagination")
 
 M.selected_database = cache.load_cache("last_db")
 
@@ -282,26 +283,76 @@ function M.setup(opts)
 
     -- Use the selected database or default to the first one
     local db = M.selected_database or config.opts.databases[1]
-    local result = M.execute(query_text, db, config.opts.backend)
 
-    if result then
-      -- If display window exists, reuse it
+    -- First, try to get page_size + 1 rows to check if pagination is needed
+    local page_size = pagination.get_page_size()
+    local check_result = M.execute_with_pagination(query_text, db, config.opts.backend, page_size + 1, 0)
+
+    if not check_result or check_result.error then
+      -- If pagination query fails, fall back to normal query
+      check_result = M.execute(query_text, db, config.opts.backend)
+    end
+
+    if check_result then
+      local total_rows = 0
+      local result
+
+      if check_result.rows then
+        local fetched_rows = #check_result.rows
+
+        -- If we got more than page_size rows, pagination is needed
+        if fetched_rows > page_size then
+          -- Enable pagination and fetch first page only (limit to page_size)
+          -- We'll estimate total_rows based on fetched_rows, but it will be updated
+          total_rows = fetched_rows -- This is an estimate, will be updated when we reach last page
+          pagination.init(query_text, db, config.opts.backend, total_rows)
+          -- Fetch first page only (limit to page_size, not page_size + 1)
+          result = M.execute_with_pagination(query_text, db, config.opts.backend, page_size, 0)
+          -- Use only first page_size rows from result (in case backend returns more)
+          if result.rows and #result.rows > page_size then
+            local limited_rows = {}
+            for i = 1, page_size do
+              table.insert(limited_rows, result.rows[i])
+            end
+            result.rows = limited_rows
+          end
+        else
+          -- No pagination needed, use the result as is
+          total_rows = fetched_rows
+          result = check_result
+          pagination.reset()
+        end
+      else
+        result = check_result
+      end
+
       if M.display_win and vim.api.nvim_win_is_valid(M.display_win) then
         vim.api.nvim_set_current_win(M.display_win)
         vim.api.nvim_set_option_value("modifiable", true, { buf = M.display_buf })
         vim.api.nvim_buf_set_lines(M.display_buf, 2, -1, false, {})
       else
-        -- Create new display window
         local buf, win = display.create_display_window()
         M.display_buf = buf
         M.display_win = win
       end
 
-      -- Format and display results
       local lines = query.format_query_results(result)
       local error = result.error ~= nil and true or false
       display.map_column_navigator()
       display.display_results(M.display_buf, M.display_win, error, query_text, lines)
+
+      -- Update total_rows if pagination is enabled and we got more data
+      if pagination.is_enabled() and result.rows then
+        local current_page_rows = #result.rows
+        local current_page = pagination.get_current_page()
+        local page_size = pagination.get_page_size()
+        -- If we're on the last page and got fewer rows than page_size, update total_rows
+        if current_page_rows < page_size and current_page == pagination.get_total_pages() then
+          local estimated_total = (current_page - 1) * page_size + current_page_rows
+          pagination.state.total_rows = estimated_total
+          pagination.state.total_pages = math.ceil(estimated_total / page_size)
+        end
+      end
     end
   end, { nargs = 1 })
 
@@ -359,26 +410,76 @@ function M.setup(opts)
 
     -- Use the selected database or default to the first one
     local db = M.selected_database or config.opts.databases[1]
-    local result = M.execute(query_text, db, config.opts.backend)
 
-    if result then
-      -- If display window exists, reuse it
+    -- First, try to get page_size + 1 rows to check if pagination is needed
+    local page_size = pagination.get_page_size()
+    local check_result = M.execute_with_pagination(query_text, db, config.opts.backend, page_size + 1, 0)
+
+    if not check_result or check_result.error then
+      -- If pagination query fails, fall back to normal query
+      check_result = M.execute(query_text, db, config.opts.backend)
+    end
+
+    if check_result then
+      local total_rows = 0
+      local result
+
+      if check_result.rows then
+        local fetched_rows = #check_result.rows
+
+        -- If we got more than page_size rows, pagination is needed
+        if fetched_rows > page_size then
+          -- Enable pagination and fetch first page only (limit to page_size)
+          -- We'll estimate total_rows based on fetched_rows, but it will be updated
+          total_rows = fetched_rows -- This is an estimate, will be updated when we reach last page
+          pagination.init(query_text, db, config.opts.backend, total_rows)
+          -- Fetch first page only (limit to page_size, not page_size + 1)
+          result = M.execute_with_pagination(query_text, db, config.opts.backend, page_size, 0)
+          -- Use only first page_size rows from result (in case backend returns more)
+          if result.rows and #result.rows > page_size then
+            local limited_rows = {}
+            for i = 1, page_size do
+              table.insert(limited_rows, result.rows[i])
+            end
+            result.rows = limited_rows
+          end
+        else
+          -- No pagination needed, use the result as is
+          total_rows = fetched_rows
+          result = check_result
+          pagination.reset()
+        end
+      else
+        result = check_result
+      end
+
       if M.display_win and vim.api.nvim_win_is_valid(M.display_win) then
         vim.api.nvim_set_current_win(M.display_win)
         vim.api.nvim_set_option_value("modifiable", true, { buf = M.display_buf })
         vim.api.nvim_buf_set_lines(M.display_buf, 2, -1, false, {})
       else
-        -- Create new display window
         local buf, win = display.create_display_window()
         M.display_buf = buf
         M.display_win = win
       end
 
-      -- Format and display results
       local lines = query.format_query_results(result)
       local error = result.error ~= nil and true or false
       display.map_column_navigator()
       display.display_results(M.display_buf, M.display_win, error, query_text, lines)
+
+      -- Update total_rows if pagination is enabled and we got more data
+      if pagination.is_enabled() and result.rows then
+        local current_page_rows = #result.rows
+        local current_page = pagination.get_current_page()
+        local page_size = pagination.get_page_size()
+        -- If we're on the last page and got fewer rows than page_size, update total_rows
+        if current_page_rows < page_size and current_page == pagination.get_total_pages() then
+          local estimated_total = (current_page - 1) * page_size + current_page_rows
+          pagination.state.total_rows = estimated_total
+          pagination.state.total_pages = math.ceil(estimated_total / page_size)
+        end
+      end
     end
   end, {})
 
@@ -399,6 +500,50 @@ function M.execute(query_text, database, backend_config)
 
   handler = require("sqlflick.handler"):new(config.opts.backend.port)
   return handler:execute_query(query_text, database, backend_config)
+end
+
+---Execute a query with pagination
+---@param query_text string
+---@param database table
+---@param backend_config table
+---@param limit number|nil
+---@param offset number|nil
+function M.execute_with_pagination(query_text, database, backend_config, limit, offset)
+  if not handler then
+    M.setup()
+  end
+
+  handler = require("sqlflick.handler"):new(config.opts.backend.port)
+  return handler:execute_query_with_pagination(query_text, database, backend_config, limit, offset)
+end
+
+---Refresh current page (reload current page data)
+function M.refresh_current_page()
+  if not pagination.is_enabled() then
+    return
+  end
+
+  local db = M.selected_database or config.opts.databases[1]
+  if not db then
+    return
+  end
+
+  local query_text = pagination.state.query_text
+  local page_size = pagination.get_page_size()
+  local offset = pagination.get_offset()
+
+  local result = M.execute_with_pagination(query_text, db, config.opts.backend, page_size, offset)
+
+  if result and M.display_buf and M.display_win and vim.api.nvim_win_is_valid(M.display_win) then
+    vim.api.nvim_set_current_win(M.display_win)
+    vim.api.nvim_set_option_value("modifiable", true, { buf = M.display_buf })
+    vim.api.nvim_buf_set_lines(M.display_buf, 2, -1, false, {})
+
+    local lines = query.format_query_results(result)
+    local error = result.error ~= nil and true or false
+    display.map_column_navigator()
+    display.display_results(M.display_buf, M.display_win, error, query_text, lines)
+  end
 end
 
 ---Install the backend binary

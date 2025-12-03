@@ -17,6 +17,7 @@ import (
 type DatabaseDriver interface {
 	Connect(config Config) error
 	Query(query string) (QueryResult, error)
+	QueryWithPagination(query string, limit *int, offset *int) (QueryResult, error)
 	Close() error
 }
 
@@ -49,6 +50,10 @@ func (d *PostgresDriver) Query(query string) (QueryResult, error) {
 	return executeSQLQuery(d.db, query)
 }
 
+func (d *PostgresDriver) QueryWithPagination(query string, limit *int, offset *int) (QueryResult, error) {
+	return executeSQLQueryWithPagination(d.db, query, limit, offset)
+}
+
 func (d *PostgresDriver) Close() error {
 	return d.db.Close()
 }
@@ -73,6 +78,10 @@ func (d *MySQLDriver) Query(query string) (QueryResult, error) {
 	return executeSQLQuery(d.db, query)
 }
 
+func (d *MySQLDriver) QueryWithPagination(query string, limit *int, offset *int) (QueryResult, error) {
+	return executeSQLQueryWithPagination(d.db, query, limit, offset)
+}
+
 func (d *MySQLDriver) Close() error {
 	return d.db.Close()
 }
@@ -93,6 +102,10 @@ func (d *SQLiteDriver) Connect(config Config) error {
 
 func (d *SQLiteDriver) Query(query string) (QueryResult, error) {
 	return executeSQLQuery(d.db, query)
+}
+
+func (d *SQLiteDriver) QueryWithPagination(query string, limit *int, offset *int) (QueryResult, error) {
+	return executeSQLQueryWithPagination(d.db, query, limit, offset)
 }
 
 func (d *SQLiteDriver) Close() error {
@@ -132,6 +145,11 @@ func (d *RedisDriver) Query(query string) (QueryResult, error) {
 	return redisResponseToQueryResult(response)
 }
 
+func (d *RedisDriver) QueryWithPagination(query string, limit *int, offset *int) (QueryResult, error) {
+	// Redis doesn't support SQL-style pagination, so just execute normally
+	return d.Query(query)
+}
+
 func (d *RedisDriver) Close() error {
 	return d.client.Close()
 }
@@ -166,6 +184,15 @@ func (d *OracleDriver) Query(query string) (QueryResult, error) {
 		query = strings.TrimSuffix(query, ";")
 	}
 	return executeSQLQuery(d.db, query)
+}
+
+func (d *OracleDriver) QueryWithPagination(query string, limit *int, offset *int) (QueryResult, error) {
+	// Remove trailing semicolon if present
+	query = strings.TrimSpace(query)
+	if strings.HasSuffix(query, ";") {
+		query = strings.TrimSuffix(query, ";")
+	}
+	return executeSQLQueryWithPagination(d.db, query, limit, offset)
 }
 
 func (d *OracleDriver) Close() error {
@@ -214,6 +241,43 @@ func executeSQLQuery(db *sql.DB, query string) (QueryResult, error) {
 	}
 
 	return result, nil
+}
+
+// Helper function to execute SQL queries with pagination
+func executeSQLQueryWithPagination(db *sql.DB, query string, limit *int, offset *int) (QueryResult, error) {
+	// Build paginated query based on database type
+	// For now, we'll use a simple approach: modify the query to add LIMIT and OFFSET
+	// This is a basic implementation - in production, you might want to parse SQL properly
+
+	// Trim whitespace and remove trailing semicolon
+	query = strings.TrimSpace(query)
+	query = strings.TrimSuffix(query, ";")
+	query = strings.TrimSpace(query)
+
+	// Check if query already has LIMIT/OFFSET
+	queryLower := strings.ToLower(query)
+	hasLimit := strings.Contains(queryLower, "limit")
+	hasOffset := strings.Contains(queryLower, "offset")
+
+	var paginatedQuery string
+	if hasLimit || hasOffset {
+		// If query already has LIMIT/OFFSET, don't modify it
+		paginatedQuery = query
+	} else {
+		// Add LIMIT and OFFSET to the query
+		paginatedQuery = query
+		if limit != nil && *limit > 0 {
+			paginatedQuery = fmt.Sprintf("%s LIMIT %d", paginatedQuery, *limit)
+		}
+		if offset != nil && *offset >= 0 {
+			// Allow offset 0 for first page
+			if *offset > 0 {
+				paginatedQuery = fmt.Sprintf("%s OFFSET %d", paginatedQuery, *offset)
+			}
+		}
+	}
+
+	return executeSQLQuery(db, paginatedQuery)
 }
 
 // parseRedisCmd parses string command into args for redis.Do
