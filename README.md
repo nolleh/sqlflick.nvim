@@ -6,7 +6,7 @@ A lightweight Neovim plugin for executing SQL queries with minimal setup. Design
 
 ## Demo
 
-![Demo](./docs/demo/sqlflick-demo.gif)
+[![Demo](./docs/demo/sqlflick-demo.gif)](https://raw.githubusercontent.com/nolleh/sqlflick.nvim/main/docs/demo/sqlflick-demo.gif)
 
 ## Why sqlflick.nvim?
 
