@@ -284,46 +284,21 @@ function M.setup(opts)
     -- Use the selected database or default to the first one
     local db = M.selected_database or config.opts.databases[1]
 
-    -- First, try to get page_size + 1 rows to check if pagination is needed
-    local page_size = pagination.get_page_size()
-    local check_result = M.execute_with_pagination(query_text, db, config.opts.backend, page_size + 1, 0)
+    -- TODO(@nolleh) modify more effective way for pagination
+    local result = M.execute(query_text, db, config.opts.backend)
 
-    if not check_result or check_result.error then
-      -- If pagination query fails, fall back to normal query
-      check_result = M.execute(query_text, db, config.opts.backend)
-    end
-
-    if check_result then
+    if result then
       local total_rows = 0
-      local result
+      if result.rows then
+        total_rows = #result.rows
+      end
 
-      if check_result.rows then
-        local fetched_rows = #check_result.rows
-
-        -- If we got more than page_size rows, pagination is needed
-        if fetched_rows > page_size then
-          -- Enable pagination and fetch first page only (limit to page_size)
-          -- We'll estimate total_rows based on fetched_rows, but it will be updated
-          total_rows = fetched_rows -- This is an estimate, will be updated when we reach last page
-          pagination.init(query_text, db, config.opts.backend, total_rows)
-          -- Fetch first page only (limit to page_size, not page_size + 1)
-          result = M.execute_with_pagination(query_text, db, config.opts.backend, page_size, 0)
-          -- Use only first page_size rows from result (in case backend returns more)
-          if result.rows and #result.rows > page_size then
-            local limited_rows = {}
-            for i = 1, page_size do
-              table.insert(limited_rows, result.rows[i])
-            end
-            result.rows = limited_rows
-          end
-        else
-          -- No pagination needed, use the result as is
-          total_rows = fetched_rows
-          result = check_result
-          pagination.reset()
-        end
+      local page_size = pagination.get_page_size()
+      if total_rows > page_size then
+        pagination.init(query_text, db, config.opts.backend, total_rows)
+        result = M.execute_with_pagination(query_text, db, config.opts.backend, page_size, 0)
       else
-        result = check_result
+        pagination.reset()
       end
 
       if M.display_win and vim.api.nvim_win_is_valid(M.display_win) then
@@ -340,19 +315,6 @@ function M.setup(opts)
       local error = result.error ~= nil and true or false
       display.map_column_navigator()
       display.display_results(M.display_buf, M.display_win, error, query_text, lines)
-
-      -- Update total_rows if pagination is enabled and we got more data
-      if pagination.is_enabled() and result.rows then
-        local current_page_rows = #result.rows
-        local current_page = pagination.get_current_page()
-        local page_size = pagination.get_page_size()
-        -- If we're on the last page and got fewer rows than page_size, update total_rows
-        if current_page_rows < page_size and current_page == pagination.get_total_pages() then
-          local estimated_total = (current_page - 1) * page_size + current_page_rows
-          pagination.state.total_rows = estimated_total
-          pagination.state.total_pages = math.ceil(estimated_total / page_size)
-        end
-      end
     end
   end, { nargs = 1 })
 
@@ -411,46 +373,21 @@ function M.setup(opts)
     -- Use the selected database or default to the first one
     local db = M.selected_database or config.opts.databases[1]
 
-    -- First, try to get page_size + 1 rows to check if pagination is needed
-    local page_size = pagination.get_page_size()
-    local check_result = M.execute_with_pagination(query_text, db, config.opts.backend, page_size + 1, 0)
+    -- TODO(@nolleh) more effective way to pagination
+    local result = M.execute(query_text, db, config.opts.backend)
 
-    if not check_result or check_result.error then
-      -- If pagination query fails, fall back to normal query
-      check_result = M.execute(query_text, db, config.opts.backend)
-    end
-
-    if check_result then
+    if result then
       local total_rows = 0
-      local result
+      if result.rows then
+        total_rows = #result.rows
+      end
 
-      if check_result.rows then
-        local fetched_rows = #check_result.rows
-
-        -- If we got more than page_size rows, pagination is needed
-        if fetched_rows > page_size then
-          -- Enable pagination and fetch first page only (limit to page_size)
-          -- We'll estimate total_rows based on fetched_rows, but it will be updated
-          total_rows = fetched_rows -- This is an estimate, will be updated when we reach last page
-          pagination.init(query_text, db, config.opts.backend, total_rows)
-          -- Fetch first page only (limit to page_size, not page_size + 1)
-          result = M.execute_with_pagination(query_text, db, config.opts.backend, page_size, 0)
-          -- Use only first page_size rows from result (in case backend returns more)
-          if result.rows and #result.rows > page_size then
-            local limited_rows = {}
-            for i = 1, page_size do
-              table.insert(limited_rows, result.rows[i])
-            end
-            result.rows = limited_rows
-          end
-        else
-          -- No pagination needed, use the result as is
-          total_rows = fetched_rows
-          result = check_result
-          pagination.reset()
-        end
+      local page_size = pagination.get_page_size()
+      if total_rows > page_size then
+        pagination.init(query_text, db, config.opts.backend, total_rows)
+        result = M.execute_with_pagination(query_text, db, config.opts.backend, page_size, 0)
       else
-        result = check_result
+        pagination.reset()
       end
 
       if M.display_win and vim.api.nvim_win_is_valid(M.display_win) then
@@ -467,19 +404,6 @@ function M.setup(opts)
       local error = result.error ~= nil and true or false
       display.map_column_navigator()
       display.display_results(M.display_buf, M.display_win, error, query_text, lines)
-
-      -- Update total_rows if pagination is enabled and we got more data
-      if pagination.is_enabled() and result.rows then
-        local current_page_rows = #result.rows
-        local current_page = pagination.get_current_page()
-        local page_size = pagination.get_page_size()
-        -- If we're on the last page and got fewer rows than page_size, update total_rows
-        if current_page_rows < page_size and current_page == pagination.get_total_pages() then
-          local estimated_total = (current_page - 1) * page_size + current_page_rows
-          pagination.state.total_rows = estimated_total
-          pagination.state.total_pages = math.ceil(estimated_total / page_size)
-        end
-      end
     end
   end, {})
 
