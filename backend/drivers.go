@@ -51,7 +51,7 @@ func (d *PostgresDriver) Query(query string) (QueryResult, error) {
 }
 
 func (d *PostgresDriver) QueryWithPagination(query string, limit *int, offset *int) (QueryResult, error) {
-	return executeSQLQueryWithPagination(d.db, query, limit, offset)
+	return executeSQLQueryWithPagination(d.db, query, limit, offset, "postgresql")
 }
 
 func (d *PostgresDriver) Close() error {
@@ -79,7 +79,7 @@ func (d *MySQLDriver) Query(query string) (QueryResult, error) {
 }
 
 func (d *MySQLDriver) QueryWithPagination(query string, limit *int, offset *int) (QueryResult, error) {
-	return executeSQLQueryWithPagination(d.db, query, limit, offset)
+	return executeSQLQueryWithPagination(d.db, query, limit, offset, "mysql")
 }
 
 func (d *MySQLDriver) Close() error {
@@ -105,7 +105,7 @@ func (d *SQLiteDriver) Query(query string) (QueryResult, error) {
 }
 
 func (d *SQLiteDriver) QueryWithPagination(query string, limit *int, offset *int) (QueryResult, error) {
-	return executeSQLQueryWithPagination(d.db, query, limit, offset)
+	return executeSQLQueryWithPagination(d.db, query, limit, offset, "sqlite")
 }
 
 func (d *SQLiteDriver) Close() error {
@@ -192,7 +192,7 @@ func (d *OracleDriver) QueryWithPagination(query string, limit *int, offset *int
 	if strings.HasSuffix(query, ";") {
 		query = strings.TrimSuffix(query, ";")
 	}
-	return executeSQLQueryWithPagination(d.db, query, limit, offset)
+	return executeSQLQueryWithPagination(d.db, query, limit, offset, "oracle")
 }
 
 func (d *OracleDriver) Close() error {
@@ -244,9 +244,8 @@ func executeSQLQuery(db *sql.DB, query string) (QueryResult, error) {
 }
 
 // Helper function to execute SQL queries with pagination
-func executeSQLQueryWithPagination(db *sql.DB, query string, limit *int, offset *int) (QueryResult, error) {
+func executeSQLQueryWithPagination(db *sql.DB, query string, limit *int, offset *int, dbType string) (QueryResult, error) {
 	// Build paginated query based on database type
-	// For now, we'll use a simple approach: modify the query to add LIMIT and OFFSET
 	// This is a basic implementation - in production, you might want to parse SQL properly
 
 	// Trim whitespace and remove trailing semicolon
@@ -258,21 +257,47 @@ func executeSQLQueryWithPagination(db *sql.DB, query string, limit *int, offset 
 	queryLower := strings.ToLower(query)
 	hasLimit := strings.Contains(queryLower, "limit")
 	hasOffset := strings.Contains(queryLower, "offset")
+	hasFetch := strings.Contains(queryLower, "fetch")
 
 	var paginatedQuery string
-	if hasLimit || hasOffset {
-		// If query already has LIMIT/OFFSET, don't modify it
+	if hasLimit || hasOffset || hasFetch {
+		// If query already has pagination, don't modify it
 		paginatedQuery = query
 	} else {
-		// Add LIMIT and OFFSET to the query
+		// Add pagination based on database type
 		paginatedQuery = query
-		if limit != nil && *limit > 0 {
-			paginatedQuery = fmt.Sprintf("%s LIMIT %d", paginatedQuery, *limit)
-		}
-		if offset != nil && *offset >= 0 {
-			// Allow offset 0 for first page
-			if *offset > 0 {
+
+		switch dbType {
+		case "mysql":
+			// MySQL requires LIMIT to use OFFSET
+			if limit != nil && *limit > 0 {
+				paginatedQuery = fmt.Sprintf("%s LIMIT %d", paginatedQuery, *limit)
+				if offset != nil && *offset > 0 {
+					paginatedQuery = fmt.Sprintf("%s OFFSET %d", paginatedQuery, *offset)
+				}
+			} else if offset != nil && *offset > 0 {
+				// For MySQL, if only offset is provided, we need to add a LIMIT
+				// Use a reasonable large limit instead of max uint64
+				paginatedQuery = fmt.Sprintf("%s LIMIT 999999999 OFFSET %d", paginatedQuery, *offset)
+			}
+
+		case "postgresql", "sqlite":
+			// PostgreSQL and SQLite support OFFSET without LIMIT
+			if limit != nil && *limit > 0 {
+				paginatedQuery = fmt.Sprintf("%s LIMIT %d", paginatedQuery, *limit)
+			}
+			if offset != nil && *offset > 0 {
 				paginatedQuery = fmt.Sprintf("%s OFFSET %d", paginatedQuery, *offset)
+			}
+
+		case "oracle":
+			// Oracle 12c+ uses FETCH FIRST/OFFSET syntax
+			// Note: This works for Oracle 12c and above
+			if offset != nil && *offset > 0 {
+				paginatedQuery = fmt.Sprintf("%s OFFSET %d ROWS", paginatedQuery, *offset)
+			}
+			if limit != nil && *limit > 0 {
+				paginatedQuery = fmt.Sprintf("%s FETCH NEXT %d ROWS ONLY", paginatedQuery, *limit)
 			}
 		}
 	}

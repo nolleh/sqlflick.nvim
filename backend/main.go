@@ -11,7 +11,7 @@ import (
 	"strconv"
 )
 
-const VERSION = "0.3.2"
+const VERSION = "0.3.3"
 
 // QueryRequest represents an incoming SQL query request
 type QueryRequest struct {
@@ -137,7 +137,7 @@ func handleQuery(w http.ResponseWriter, r *http.Request) {
 		result, err = driver.Query(req.Query)
 	}
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Query failed: %v", err), http.StatusInternalServerError)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
