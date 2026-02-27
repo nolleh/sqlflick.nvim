@@ -135,6 +135,10 @@ Using [Lazy.nvim](https://github.com/folke/lazy.nvim):
 }
 ```
 
+## Changelog
+
+See [CHANGELOG.md](./CHANGELOG.md) for release notes and version history.
+
 ## Key Mappings
 
 The following mappings are available for SQL-related file types (e.g., `.sql`, `.pgsql`, `.mysql`):
