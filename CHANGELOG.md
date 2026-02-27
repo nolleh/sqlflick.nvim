@@ -18,6 +18,7 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Fixed
 
+- Fix a critical regression where the plugin failed to load because `sqlflick.pagination` module resolution broke.
 - Adjust MySQL pagination fallback behavior for safer default limits.
 
 ## [0.5.1] - 2026-01-30
