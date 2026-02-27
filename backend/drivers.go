@@ -18,6 +18,7 @@ type DatabaseDriver interface {
 	Connect(config Config) error
 	Query(query string) (QueryResult, error)
 	QueryWithPagination(query string, limit *int, offset *int) (QueryResult, error)
+	Count(query string) (int64, error)
 	Close() error
 }
 
@@ -54,6 +55,10 @@ func (d *PostgresDriver) QueryWithPagination(query string, limit *int, offset *i
 	return executeSQLQueryWithPagination(d.db, query, limit, offset, "postgresql")
 }
 
+func (d *PostgresDriver) Count(query string) (int64, error) {
+	return executeSQLCount(d.db, query)
+}
+
 func (d *PostgresDriver) Close() error {
 	return d.db.Close()
 }
@@ -82,6 +87,10 @@ func (d *MySQLDriver) QueryWithPagination(query string, limit *int, offset *int)
 	return executeSQLQueryWithPagination(d.db, query, limit, offset, "mysql")
 }
 
+func (d *MySQLDriver) Count(query string) (int64, error) {
+	return executeSQLCount(d.db, query)
+}
+
 func (d *MySQLDriver) Close() error {
 	return d.db.Close()
 }
@@ -106,6 +115,10 @@ func (d *SQLiteDriver) Query(query string) (QueryResult, error) {
 
 func (d *SQLiteDriver) QueryWithPagination(query string, limit *int, offset *int) (QueryResult, error) {
 	return executeSQLQueryWithPagination(d.db, query, limit, offset, "sqlite")
+}
+
+func (d *SQLiteDriver) Count(query string) (int64, error) {
+	return executeSQLCount(d.db, query)
 }
 
 func (d *SQLiteDriver) Close() error {
@@ -146,8 +159,11 @@ func (d *RedisDriver) Query(query string) (QueryResult, error) {
 }
 
 func (d *RedisDriver) QueryWithPagination(query string, limit *int, offset *int) (QueryResult, error) {
-	// Redis doesn't support SQL-style pagination, so just execute normally
 	return d.Query(query)
+}
+
+func (d *RedisDriver) Count(query string) (int64, error) {
+	return 0, fmt.Errorf("count is not supported for Redis")
 }
 
 func (d *RedisDriver) Close() error {
@@ -193,6 +209,12 @@ func (d *OracleDriver) QueryWithPagination(query string, limit *int, offset *int
 		query = strings.TrimSuffix(query, ";")
 	}
 	return executeSQLQueryWithPagination(d.db, query, limit, offset, "oracle")
+}
+
+func (d *OracleDriver) Count(query string) (int64, error) {
+	query = strings.TrimSpace(query)
+	query = strings.TrimSuffix(query, ";")
+	return executeSQLCount(d.db, query)
 }
 
 func (d *OracleDriver) Close() error {
@@ -243,6 +265,18 @@ func executeSQLQuery(db *sql.DB, query string) (QueryResult, error) {
 	return result, nil
 }
 
+func executeSQLCount(db *sql.DB, query string) (int64, error) {
+	query = strings.TrimSpace(query)
+	query = strings.TrimSuffix(query, ";")
+	countQuery := fmt.Sprintf("SELECT COUNT(*) FROM (%s) t", query)
+
+	var count int64
+	if err := db.QueryRow(countQuery).Scan(&count); err != nil {
+		return 0, err
+	}
+	return count, nil
+}
+
 // Helper function to execute SQL queries with pagination
 func executeSQLQueryWithPagination(db *sql.DB, query string, limit *int, offset *int, dbType string) (QueryResult, error) {
 	// Build paginated query based on database type
@@ -277,8 +311,7 @@ func executeSQLQueryWithPagination(db *sql.DB, query string, limit *int, offset 
 				}
 			} else if offset != nil && *offset > 0 {
 				// For MySQL, if only offset is provided, we need to add a LIMIT
-				// Use a reasonable large limit instead of max uint64
-				paginatedQuery = fmt.Sprintf("%s LIMIT 999999999 OFFSET %d", paginatedQuery, *offset)
+				paginatedQuery = fmt.Sprintf("%s LIMIT 1000 OFFSET %d", paginatedQuery, *offset)
 			}
 
 		case "postgresql", "sqlite":

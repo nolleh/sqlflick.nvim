@@ -284,23 +284,19 @@ function M.setup(opts)
     -- Use the selected database or default to the first one
     local db = M.selected_database or config.opts.databases[1]
 
-    -- TODO(@nolleh) modify more effective way for pagination
-    local result = M.execute(query_text, db, config.opts.backend)
+    local page_size = pagination.get_page_size()
+    local total_rows = M.execute_count(query_text, db, config.opts.backend)
+    local result
+
+    if total_rows > page_size then
+      pagination.init(query_text, db, config.opts.backend, total_rows)
+      result = M.execute_with_pagination(query_text, db, config.opts.backend, page_size, 0)
+    else
+      pagination.reset()
+      result = M.execute(query_text, db, config.opts.backend)
+    end
 
     if result then
-      local total_rows = 0
-      if result.rows then
-        total_rows = #result.rows
-      end
-
-      local page_size = pagination.get_page_size()
-      if total_rows > page_size then
-        pagination.init(query_text, db, config.opts.backend, total_rows)
-        result = M.execute_with_pagination(query_text, db, config.opts.backend, page_size, 0)
-      else
-        pagination.reset()
-      end
-
       if M.display_win and vim.api.nvim_win_is_valid(M.display_win) then
         vim.api.nvim_set_current_win(M.display_win)
         vim.api.nvim_set_option_value("modifiable", true, { buf = M.display_buf })
@@ -373,23 +369,19 @@ function M.setup(opts)
     -- Use the selected database or default to the first one
     local db = M.selected_database or config.opts.databases[1]
 
-    -- TODO(@nolleh) more effective way to pagination
-    local result = M.execute(query_text, db, config.opts.backend)
+    local page_size = pagination.get_page_size()
+    local total_rows = M.execute_count(query_text, db, config.opts.backend)
+    local result
+
+    if total_rows > page_size then
+      pagination.init(query_text, db, config.opts.backend, total_rows)
+      result = M.execute_with_pagination(query_text, db, config.opts.backend, page_size, 0)
+    else
+      pagination.reset()
+      result = M.execute(query_text, db, config.opts.backend)
+    end
 
     if result then
-      local total_rows = 0
-      if result.rows then
-        total_rows = #result.rows
-      end
-
-      local page_size = pagination.get_page_size()
-      if total_rows > page_size then
-        pagination.init(query_text, db, config.opts.backend, total_rows)
-        result = M.execute_with_pagination(query_text, db, config.opts.backend, page_size, 0)
-      else
-        pagination.reset()
-      end
-
       if M.display_win and vim.api.nvim_win_is_valid(M.display_win) then
         vim.api.nvim_set_current_win(M.display_win)
         vim.api.nvim_set_option_value("modifiable", true, { buf = M.display_buf })
@@ -424,6 +416,20 @@ function M.execute(query_text, database, backend_config)
 
   handler = require("sqlflick.handler"):new(config.opts.backend.port)
   return handler:execute_query(query_text, database, backend_config)
+end
+
+---Execute a count query
+---@param query_text string
+---@param database table
+---@param backend_config table
+---@return number count
+function M.execute_count(query_text, database, backend_config)
+  if not handler then
+    M.setup()
+  end
+
+  handler = require("sqlflick.handler"):new(config.opts.backend.port)
+  return handler:execute_count(query_text, database, backend_config)
 end
 
 ---Execute a query with pagination

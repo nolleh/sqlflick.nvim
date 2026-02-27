@@ -172,6 +172,55 @@ function Handler:execute_query(query, db_config, backend_config)
   return result
 end
 
+---Execute a count query through the backend
+---@param query string
+---@param db_config table
+---@param backend_config table
+---@return number count
+function Handler:execute_count(query, db_config, backend_config)
+  if not self.process then
+    self:ensure_running()
+  end
+
+  local url = string.format("http://%s:%d/count", backend_config.host, backend_config.port)
+
+  local data = {
+    database = db_config.type,
+    query = query,
+    config = {
+      host = db_config.host,
+      port = db_config.port,
+      user = db_config.username,
+      password = db_config.password,
+      dbname = db_config.database,
+    },
+  }
+
+  local json_str = vim.fn.json_encode(data)
+  json_str = json_str:gsub("\\\\", "\\")
+  json_str = json_str:gsub('\\"', "'")
+
+  local response = http.request("POST", url, {
+    headers = {
+      ["Content-Type"] = "application/json",
+    },
+    body = json_str,
+  })
+
+  if not response then
+    vim.notify("Failed to connect to backend", vim.log.levels.ERROR)
+    return 0
+  end
+
+  local result = vim.fn.json_decode(response.body)
+  if result.error then
+    vim.notify("Count query failed: " .. result.error, vim.log.levels.ERROR)
+    return 0
+  end
+
+  return result.count or 0
+end
+
 ---Execute a query with pagination through the backend
 ---@param query string
 ---@param db_config table
