@@ -284,11 +284,15 @@ function M.setup(opts)
     -- Use the selected database or default to the first one
     local db = M.selected_database or config.opts.databases[1]
 
-    local page_size = pagination.get_page_size()
-    local total_rows = M.execute_count(query_text, db, config.opts.backend)
+    local count_result = M.execute_count(query_text, db, config.opts.backend)
     local result
 
-    if total_rows > page_size then
+    if count_result.error then
+      pagination.reset()
+      result = { error = count_result.error }
+    elseif count_result.count > pagination.get_page_size() then
+      local page_size = pagination.get_page_size()
+      local total_rows = count_result.count
       pagination.init(query_text, db, config.opts.backend, total_rows)
       result = M.execute_with_pagination(query_text, db, config.opts.backend, page_size, 0)
     else
@@ -369,11 +373,15 @@ function M.setup(opts)
     -- Use the selected database or default to the first one
     local db = M.selected_database or config.opts.databases[1]
 
-    local page_size = pagination.get_page_size()
-    local total_rows = M.execute_count(query_text, db, config.opts.backend)
+    local count_result = M.execute_count(query_text, db, config.opts.backend)
     local result
 
-    if total_rows > page_size then
+    if count_result.error then
+      pagination.reset()
+      result = { error = count_result.error }
+    elseif count_result.count > pagination.get_page_size() then
+      local page_size = pagination.get_page_size()
+      local total_rows = count_result.count
       pagination.init(query_text, db, config.opts.backend, total_rows)
       result = M.execute_with_pagination(query_text, db, config.opts.backend, page_size, 0)
     else
@@ -422,7 +430,7 @@ end
 ---@param query_text string
 ---@param database table
 ---@param backend_config table
----@return number count
+---@return { count?: number, error?: string }
 function M.execute_count(query_text, database, backend_config)
   if not handler then
     M.setup()

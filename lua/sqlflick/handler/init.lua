@@ -176,7 +176,7 @@ end
 ---@param query string
 ---@param db_config table
 ---@param backend_config table
----@return number count
+---@return { count?: number, error?: string }
 function Handler:execute_count(query, db_config, backend_config)
   if not self.process then
     self:ensure_running()
@@ -209,16 +209,16 @@ function Handler:execute_count(query, db_config, backend_config)
 
   if not response then
     vim.notify("Failed to connect to backend", vim.log.levels.ERROR)
-    return 0
+    return { error = "Failed to connect to backend" }
   end
 
   local result = vim.fn.json_decode(response.body)
   if result.error then
     vim.notify("Count query failed: " .. result.error, vim.log.levels.ERROR)
-    return 0
+    return { error = result.error }
   end
 
-  return result.count or 0
+  return { count = result.count or 0 }
 end
 
 ---Execute a query with pagination through the backend
