@@ -4,6 +4,17 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog, and this project follows Semantic Versioning.
 
+## [0.5.3] - 2026-09-17
+
+### Added
+
+- Add a local Neovim test workflow with Plenary and Make targets.
+
+### Fixed
+
+- Preserve count-query errors instead of treating them as zero rows and
+  executing an unpaginated query.
+
 ## [0.5.2] - 2026-02-27
 
 ### Added
