@@ -1,6 +1,8 @@
 -- This is a test configuration file
 -- You can source this in your init.lua or run it directly with :luafile %
 
+vim.g.mapleader = " "
+
 -- Add the current directory to the runtime path
 vim.opt.rtp:append(".")
 -- print("Handler module:", vim.inspect(require("sqlflick.handler")))

@@ -7,4 +7,9 @@ palette.png
 ## editor / env
 *.swp
 *.DS_Store
+nvim.log
 test.db
+.deps/
+
+## private implementation plans
+/.internal-plans/

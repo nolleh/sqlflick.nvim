@@ -90,7 +90,7 @@ Using [Lazy.nvim](https://github.com/folke/lazy.nvim):
 ## Configuration
 
 [full-configuration](./lua/sqlflick/config.lua)  
-[example-configuration](./test/test.lua)
+[example-configuration](./tests/test.lua)
 
 ```lua
 {

@@ -1,0 +1,1 @@
+-- Tests run with this isolated Neovim configuration instead of the user's init.lua.
