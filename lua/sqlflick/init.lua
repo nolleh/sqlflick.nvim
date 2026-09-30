@@ -13,6 +13,7 @@ local install = require("sqlflick.install")
 local deps = require("sqlflick.deps")
 local cache = require("sqlflick.cache")
 local pagination = require("sqlflick.pagination")
+local completion = require("sqlflick.completion")
 
 M.selected_database = cache.load_cache("last_db")
 
@@ -191,6 +192,15 @@ function M.setup(opts)
 
   query.setup(config.opts)
 
+  completion.setup({
+    get_database = function()
+      return M.selected_database or config.opts.databases[1]
+    end,
+    fetch_schema = function(database)
+      return M.fetch_schema(database, config.opts.backend)
+    end,
+  })
+
   -- Create display commands
   vim.api.nvim_create_user_command("SQLFlickDebug", function()
     print("SQLFlick Debug Info:")
@@ -250,27 +260,44 @@ function M.setup(opts)
       }, {})
     end, { silent = true, desc = "Execute selected SQL query", buffer = true })
     vim.keymap.set("n", "<leader>ss", ":SQLFlickSelectDB<CR>", { silent = true, desc = "Select DB from configuration" })
+    if config.opts.completion.enabled then
+      completion.attach(0)
+    end
   end
+
+  local sql_filetypes = {
+    "sql",
+    "pgsql",
+    "mysql",
+    "sqlite",
+    "hql",
+    "cql",
+    "plsql",
+    "tsql",
+    "ddl",
+    "dml",
+  }
 
   -- Set up mappings for SQL and query-related file types
   vim.api.nvim_create_autocmd("FileType", {
-    pattern = {
-      "sql",
-      "pgsql",
-      "mysql",
-      "sqlite",
-      "hql",
-      "cql",
-      "plsql",
-      "tsql",
-      "ddl",
-      "dml",
-    },
+    pattern = sql_filetypes,
     callback = setup_query_mappings,
   })
+  if vim.tbl_contains(sql_filetypes, vim.bo.filetype) then
+    setup_query_mappings()
+  end
 
   vim.api.nvim_create_user_command("SQLFlickRestart", function()
     M.restart()
+  end, {})
+
+  vim.api.nvim_create_user_command("SQLFlickRefreshSchema", function()
+    local schema, err = completion.refresh()
+    if not schema then
+      vim.notify("Failed to refresh SQL schema: " .. err, vim.log.levels.ERROR)
+      return
+    end
+    vim.notify(string.format("SQL schema refreshed (%d tables/views)", #schema.tables), vim.log.levels.INFO)
   end, {})
 
   -- Create query execution command
@@ -453,6 +480,18 @@ function M.execute_with_pagination(query_text, database, backend_config, limit, 
 
   handler = require("sqlflick.handler"):new(config.opts.backend.port)
   return handler:execute_query_with_pagination(query_text, database, backend_config, limit, offset)
+end
+
+---Fetch schema metadata for completion.
+---@param database table
+---@param backend_config table
+---@return table|nil schema
+---@return string|nil error
+function M.fetch_schema(database, backend_config)
+  if not handler then
+    handler = require("sqlflick.handler"):new(config.opts.backend.port)
+  end
+  return handler:fetch_schema(database, backend_config)
 end
 
 ---Refresh current page (reload current page data)

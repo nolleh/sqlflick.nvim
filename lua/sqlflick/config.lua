@@ -77,6 +77,10 @@ M.opts = {
   pagination = {
     page_size = 20, -- Default number of rows per page
   },
+  -- Native SQL completion settings
+  completion = {
+    enabled = true,
+  },
 }
 
 local function show_deprecation_popup(msg)

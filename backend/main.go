@@ -11,7 +11,7 @@ import (
 	"strconv"
 )
 
-const VERSION = "0.5.3"
+const VERSION = "0.6.0"
 
 // QueryRequest represents an incoming SQL query request
 type QueryRequest struct {
@@ -50,6 +50,12 @@ type QueryResult struct {
 type CountResult struct {
 	Count int64  `json:"count"`
 	Error string `json:"error,omitempty"`
+}
+
+// SchemaRequest represents a request for relational database metadata.
+type SchemaRequest struct {
+	Database string `json:"database"`
+	Config   Config `json:"config"`
 }
 
 // ErrorResponse represents a JSON error response
@@ -198,6 +204,48 @@ func handleCount(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func handleSchema(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Only POST method is allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req SchemaRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	driver, ok := drivers[req.Database]
+	if !ok {
+		http.Error(w, fmt.Sprintf("Unsupported database type: %s", req.Database), http.StatusBadRequest)
+		return
+	}
+
+	provider, ok := driver.(SchemaProvider)
+	if !ok {
+		http.Error(w, fmt.Sprintf("Schema completion is not supported for database type: %s", req.Database), http.StatusBadRequest)
+		return
+	}
+
+	if err := driver.Connect(req.Config); err != nil {
+		http.Error(w, fmt.Sprintf("Failed to connect: %v", err), http.StatusInternalServerError)
+		return
+	}
+	defer driver.Close()
+
+	schema, err := provider.Schema()
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Failed to load schema: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(schema); err != nil {
+		http.Error(w, fmt.Sprintf("Failed to encode response: %v", err), http.StatusInternalServerError)
+	}
+}
+
 func main() {
 	port := 9091
 	for i := 0; i < len(os.Args); i++ {
@@ -214,6 +262,7 @@ func main() {
 
 	http.HandleFunc("/query", jsonErrorMiddleware(handleQuery))
 	http.HandleFunc("/count", jsonErrorMiddleware(handleCount))
+	http.HandleFunc("/schema", jsonErrorMiddleware(handleSchema))
 
 	fmt.Printf("Starting SQLFlick backend server on port %d...\n", port)
 	if err := http.ListenAndServe(fmt.Sprintf(":%d", port), nil); err != nil {
