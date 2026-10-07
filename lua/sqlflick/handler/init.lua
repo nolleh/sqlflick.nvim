@@ -283,4 +283,46 @@ function Handler:execute_query_with_pagination(query, db_config, backend_config,
   return result
 end
 
+---Fetch relational schema metadata through the backend.
+---@param db_config table
+---@param backend_config table
+---@return table|nil schema
+---@return string|nil error
+function Handler:fetch_schema(db_config, backend_config)
+  if not self.process then
+    self:ensure_running()
+  end
+
+  local url = string.format("http://%s:%d/schema", backend_config.host, backend_config.port)
+  local data = {
+    database = db_config.type,
+    config = {
+      host = db_config.host,
+      port = db_config.port,
+      user = db_config.username,
+      password = db_config.password,
+      dbname = db_config.database,
+    },
+  }
+
+  local response = http.request("POST", url, {
+    headers = {
+      ["Content-Type"] = "application/json",
+    },
+    body = vim.fn.json_encode(data),
+  })
+  if not response then
+    return nil, "failed to connect to backend"
+  end
+
+  local decoded, result = pcall(vim.fn.json_decode, response.body)
+  if not decoded then
+    return nil, "backend returned an invalid schema response"
+  end
+  if result.error then
+    return nil, result.error
+  end
+  return result
+end
+
 return Handler

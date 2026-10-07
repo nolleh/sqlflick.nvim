@@ -4,6 +4,19 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog, and this project follows Semantic Versioning.
 
+## [0.6.0] - 2026-10-01
+
+### Added
+
+- Add native schema-aware SQL omni-completion for PostgreSQL, MySQL, and SQLite.
+- Suggest tables, views, columns, aliases, and SQL keywords from the selected database.
+- Cache schema metadata in memory and add `:SQLFlickRefreshSchema` for explicit refreshes.
+- Retry schema loading on user-triggered completion and pause after three consecutive failures until an explicit refresh.
+
+### Changed
+
+- Bump the backend version to `0.6.0` for the new schema metadata endpoint.
+
 ## [0.5.3] - 2026-09-17
 
 ### Added

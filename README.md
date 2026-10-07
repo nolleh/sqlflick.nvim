@@ -81,7 +81,7 @@ Using [Lazy.nvim](https://github.com/folke/lazy.nvim):
         })
     end,
     -- recommended load plugin option
-    cmd = { "SQLFlickSelectDB", "SQLFlickExecute", "SQLFlickExecuteBuf", "SQLFlickInstall", "SQLFlickRestart" },
+    cmd = { "SQLFlickSelectDB", "SQLFlickExecute", "SQLFlickExecuteBuf", "SQLFlickInstall", "SQLFlickRestart", "SQLFlickRefreshSchema" },
     -- If you want to load/enable the plugin only for specific file_type, use this
     ft = { "sql", "pgsql" },
 }
@@ -132,8 +132,29 @@ Using [Lazy.nvim](https://github.com/folke/lazy.nvim):
         host = "localhost",
         port = 9081 -- use some unknown port that not conflicting with your environment
     },
+
+    -- Native schema-aware completion
+    completion = {
+        enabled = true,
+    },
 }
 ```
+
+## SQL completion
+
+SQL buffers use Neovim's native omni-completion. In insert mode, press
+`<C-x><C-o>` to complete:
+
+- tables and views after `FROM` and `JOIN`;
+- columns in `SELECT`, `WHERE`, `ON`, and other expressions;
+- columns scoped by aliases such as `u.` in `FROM users u`;
+- SQL keywords when no schema-specific context applies.
+
+PostgreSQL, MySQL, and SQLite schemas are loaded on first use and cached in
+memory. Run `:SQLFlickRefreshSchema` after adding or removing tables, views, or
+columns. After three consecutive schema fetch failures, automatic schema
+requests pause until `:SQLFlickRefreshSchema` is run. Redis and Oracle continue
+to use query execution without schema-aware completion.
 
 ## Changelog
 
@@ -148,6 +169,9 @@ The following mappings are available for SQL-related file types (e.g., `.sql`, `
 | `SQLFlickSelectDB`   | n    | `<leader>ss` | Select database connection |
 | `SQLFlickExecuteBuf` | n    | `<leader>sq` | Execute current line query |
 | `SQLFlickExecute`    | v    | `<leader>sq` | Execute selected query     |
+
+Completion is available in insert mode with Neovim's native `<C-x><C-o>`
+mapping. `:SQLFlickRefreshSchema` reloads metadata for the selected database.
 
 The following mappings are available in specific pages. (not user command)
 

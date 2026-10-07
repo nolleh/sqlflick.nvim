@@ -1,7 +1,7 @@
 PLENARY_DIR := .deps/plenary.nvim
 PLENARY_REPO := https://github.com/nvim-lua/plenary.nvim.git
 
-.PHONY: test test-deps dev db-up db-down
+.PHONY: test test-deps dev dev-user db-up db-down
 
 test: test-deps
 	nvim --headless -u NONE \
@@ -19,6 +19,10 @@ test-deps:
 # Launch Neovim with the local SQLFlick development configuration.
 dev:
 	nvim -u tests/test.lua tests/fixtures/mysql.sql
+
+# Overlay the local plugin on the user's existing Neovim configuration.
+dev-user:
+	nvim --cmd "luafile $(CURDIR)/dev-load.lua" tests/fixtures/mysql.sql
 
 db-up:
 	docker compose -f tests/docker/docker-compose.yml up -d
