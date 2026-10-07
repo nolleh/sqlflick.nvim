@@ -156,6 +156,9 @@ columns. After three consecutive schema fetch failures, automatic schema
 requests pause until `:SQLFlickRefreshSchema` is run. Redis and Oracle continue
 to use query execution without schema-aware completion.
 
+For implementation details, usage examples, known limitations, and future
+directions, see the [SQL Completion wiki guide](https://github.com/nolleh/sqlflick.nvim/wiki/SQL-Completion).
+
 ## Changelog
 
 See [CHANGELOG.md](./CHANGELOG.md) for release notes and version history.
