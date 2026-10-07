@@ -1,5 +1,7 @@
 local M = {}
 
+local max_schema_attempts = 3
+
 local state = {
   get_database = function()
     return nil
@@ -9,6 +11,9 @@ local state = {
   end,
   schemas = {},
   failures = {},
+  notify = function(message, level)
+    vim.notify(message, level)
+  end,
 }
 
 local keywords = {
@@ -93,15 +98,30 @@ local function load_schema(force)
     if state.schemas[key] then
       return state.schemas[key]
     end
-    if state.failures[key] then
-      return nil, state.failures[key]
+    local failure = state.failures[key]
+    if failure and failure.disabled then
+      return nil, failure.error
     end
   end
 
   local schema, err = state.fetch_schema(database)
   if not schema then
-    state.failures[key] = err or "failed to load schema"
-    return nil, state.failures[key]
+    local failure = state.failures[key] or { attempts = 0 }
+    failure.attempts = failure.attempts + 1
+    failure.error = err or "failed to load schema"
+    failure.disabled = failure.attempts >= max_schema_attempts
+    state.failures[key] = failure
+
+    if failure.disabled and not failure.notified then
+      failure.notified = true
+      state.notify(
+        string.format("SQL schema completion is disabled after %d failed attempts. ", max_schema_attempts)
+          .. "Resolve the database/backend issue, then run :SQLFlickRefreshSchema.",
+        vim.log.levels.WARN
+      )
+    end
+
+    return nil, failure.error
   end
 
   schema.tables = schema.tables or {}
@@ -332,6 +352,9 @@ end
 function M.setup(opts)
   state.get_database = opts.get_database
   state.fetch_schema = opts.fetch_schema
+  state.notify = opts.notify or function(message, level)
+    vim.notify(message, level)
+  end
 end
 
 -- Function options cannot resolve require() expressions, so keep the global

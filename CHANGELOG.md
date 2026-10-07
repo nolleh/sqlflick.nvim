@@ -11,6 +11,7 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 - Add native schema-aware SQL omni-completion for PostgreSQL, MySQL, and SQLite.
 - Suggest tables, views, columns, aliases, and SQL keywords from the selected database.
 - Cache schema metadata in memory and add `:SQLFlickRefreshSchema` for explicit refreshes.
+- Retry schema loading on user-triggered completion and pause after three consecutive failures until an explicit refresh.
 
 ### Changed
 

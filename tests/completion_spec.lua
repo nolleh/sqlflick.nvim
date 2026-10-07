@@ -46,7 +46,27 @@ local function words(items)
   return result
 end
 
+local function set_current_sql(sql)
+  local buffer = vim.api.nvim_create_buf(false, true)
+  vim.api.nvim_set_current_buf(buffer)
+  vim.api.nvim_buf_set_lines(buffer, 0, -1, false, { sql })
+  vim.api.nvim_win_set_cursor(0, { 1, #sql })
+end
+
 describe("SQL completion", function()
+  before_each(function()
+    completion.clear()
+    completion.setup({
+      get_database = function()
+        return nil
+      end,
+      fetch_schema = function()
+        return nil, "schema fetcher is not configured"
+      end,
+      notify = function() end,
+    })
+  end)
+
   it("suggests tables and views after FROM", function()
     local sql, cursor = at_cursor("SELECT * FROM ord<cursor>")
     local result = completion.complete(sql, cursor, schema, "ord")
@@ -101,5 +121,67 @@ describe("SQL completion", function()
     completion.attach(0)
 
     assert.equals(0, vim.api.nvim_eval(vim.bo.omnifunc .. "(1, '')"))
+  end)
+
+  it("retries a failed schema fetch and caches a later success", function()
+    local fetches = 0
+    completion.setup({
+      get_database = function()
+        return { type = "sqlite", name = "test", database = ":memory:" }
+      end,
+      fetch_schema = function()
+        fetches = fetches + 1
+        if fetches == 1 then
+          return nil, "backend is starting"
+        end
+        return schema
+      end,
+      notify = function() end,
+    })
+
+    set_current_sql("SELECT * FROM us")
+
+    assert.equals(0, #completion.omnifunc(0, "us"))
+    assert.equals("users", completion.omnifunc(0, "us")[1].word)
+    assert.equals("users", completion.omnifunc(0, "us")[1].word)
+    assert.equals(2, fetches)
+  end)
+
+  it("stops after three failures and refresh re-enables schema fetching", function()
+    local fetches = 0
+    local notifications = {}
+    completion.setup({
+      get_database = function()
+        return { type = "sqlite", name = "test", database = ":memory:" }
+      end,
+      fetch_schema = function()
+        fetches = fetches + 1
+        if fetches <= 3 then
+          return nil, "backend is unavailable"
+        end
+        return schema
+      end,
+      notify = function(message)
+        table.insert(notifications, message)
+      end,
+    })
+
+    set_current_sql("SELECT * FROM us")
+
+    completion.omnifunc(0, "us")
+    completion.omnifunc(0, "us")
+    completion.omnifunc(0, "us")
+    completion.omnifunc(0, "us")
+
+    assert.equals(3, fetches)
+    assert.equals(1, #notifications)
+    assert.matches("SQLFlickRefreshSchema", notifications[1], 1, true)
+
+    local refreshed = completion.refresh()
+    assert.equals(4, fetches)
+    assert.equals("users", refreshed.tables[1].name)
+    assert.equals("users", completion.omnifunc(0, "us")[1].word)
+    assert.equals(4, fetches)
+    assert.equals(1, #notifications)
   end)
 end)

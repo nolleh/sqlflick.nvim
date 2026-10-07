@@ -152,8 +152,9 @@ SQL buffers use Neovim's native omni-completion. In insert mode, press
 
 PostgreSQL, MySQL, and SQLite schemas are loaded on first use and cached in
 memory. Run `:SQLFlickRefreshSchema` after adding or removing tables, views, or
-columns. Redis and Oracle continue to use query execution without schema-aware
-completion.
+columns. After three consecutive schema fetch failures, automatic schema
+requests pause until `:SQLFlickRefreshSchema` is run. Redis and Oracle continue
+to use query execution without schema-aware completion.
 
 ## Changelog
 
