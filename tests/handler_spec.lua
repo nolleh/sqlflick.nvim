@@ -48,8 +48,7 @@ for _, transport in ipairs({ "http", "curl" }) do
         end
         vim.fn.system = function(cmd)
           if cmd == "which curl" then
-            vim.v.shell_error = 0
-            return "curl"
+            return saved_system({ "/bin/sh", "-c", "printf curl" })
           end
           -- Run the generated command through a real shell, replacing curl
           -- with a function that returns its body argument without networking.
