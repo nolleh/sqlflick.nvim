@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog, and this project follows Semantic Versioning.
 
+## [0.6.1] - 2026-10-11
+
+### Fixed
+
+- Preserve quoted strings and identifiers when sending SQL queries to the backend.
+
+### Docs
+
+- Link the SQL completion guide from the README.
+
 ## [0.6.0] - 2026-10-01
 
 ### Added
