@@ -24,9 +24,9 @@ if not ok then
       end
 
       local cmd = string.format(
-        'curl -s -X %s -H "Content-Type: application/json" -d "%s" %s',
+        'curl -s -X %s -H "Content-Type: application/json" -d %s %s',
         method,
-        opts.body:gsub('"', '\\"'),
+        vim.fn.shellescape(opts.body),
         url
       )
       local response = vim.fn.system(cmd)
@@ -147,8 +147,6 @@ function Handler:execute_query(query, db_config, backend_config)
   local json_str = vim.fn.json_encode(data)
   -- Remove the extra escaping of backslashes
   json_str = json_str:gsub("\\\\", "\\")
-  -- Ensure single quotes are preserved
-  json_str = json_str:gsub('\\"', "'")
 
   -- Use HTTP client (either lua-http or curl fallback)
   local response = http.request("POST", url, {
@@ -198,7 +196,6 @@ function Handler:execute_count(query, db_config, backend_config)
 
   local json_str = vim.fn.json_encode(data)
   json_str = json_str:gsub("\\\\", "\\")
-  json_str = json_str:gsub('\\"', "'")
 
   local response = http.request("POST", url, {
     headers = {
@@ -259,8 +256,6 @@ function Handler:execute_query_with_pagination(query, db_config, backend_config,
   local json_str = vim.fn.json_encode(data)
   -- Remove the extra escaping of backslashes
   json_str = json_str:gsub("\\\\", "\\")
-  -- Ensure single quotes are preserved
-  json_str = json_str:gsub('\\"', "'")
 
   local response = http.request("POST", url, {
     headers = {
