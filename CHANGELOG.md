@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog, and this project follows Semantic Versioning.
 
+## [0.6.3] - 2026-10-15
+
+### Fixed
+
+- Close the database selector when focus moves outside its windows, while keeping it open when moving between them.
+
+### Tests
+
+- Add backend coverage for database drivers, query helpers, and HTTP handlers.
+
 ## [0.6.2] - 2026-10-14
 
 ### Fixed

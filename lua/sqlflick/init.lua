@@ -65,6 +65,21 @@ local function show_database_selector()
     })
   end
 
+  vim.api.nvim_create_autocmd("WinLeave", {
+    group = selector_group,
+    callback = function()
+      vim.schedule(function()
+        if closing then
+          return
+        end
+        local current_win = vim.api.nvim_get_current_win()
+        if current_win ~= search_win and current_win ~= list_win and current_win ~= selector_win then
+          close_selector()
+        end
+      end)
+    end,
+  })
+
   local function select_current_database()
     local items = tree.filter_items(tree.get_visible_items(root), search_term)
     local item = items[current_line]
@@ -110,9 +125,11 @@ local function show_database_selector()
     group = selector_group,
     buffer = search_buf,
     callback = function()
-      if not closing and vim.api.nvim_win_is_valid(list_win) then
-        vim.api.nvim_set_current_win(list_win)
-      end
+      vim.schedule(function()
+        if not closing and vim.api.nvim_win_is_valid(list_win) and vim.api.nvim_get_current_win() == search_win then
+          vim.api.nvim_set_current_win(list_win)
+        end
+      end)
     end,
   })
 

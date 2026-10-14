@@ -52,6 +52,37 @@ local function press(buf, mode, lhs)
 end
 
 describe("Database selector", function()
+  it("keeps the selector open while moving between its windows", function()
+    local search_win, list_win, details_win = open_selector()
+
+    vim.api.nvim_set_current_win(list_win)
+    assert.is_true(vim.wait(100, function()
+      return vim.api.nvim_get_current_win() == list_win
+    end))
+    assert.is_true(vim.api.nvim_win_is_valid(search_win))
+    assert.is_true(vim.api.nvim_win_is_valid(details_win))
+
+    press(vim.api.nvim_win_get_buf(list_win), "n", "q")
+  end)
+
+  for _, focused_window in ipairs({ "search", "list" }) do
+    it("closes all selector windows when focus leaves the " .. focused_window .. " window", function()
+      local original_win = vim.api.nvim_get_current_win()
+      local search_win, list_win, details_win = open_selector()
+      if focused_window == "list" then
+        vim.api.nvim_set_current_win(list_win)
+      end
+
+      vim.api.nvim_set_current_win(original_win)
+      assert.is_true(vim.wait(1000, function()
+        return not vim.api.nvim_win_is_valid(search_win)
+          and not vim.api.nvim_win_is_valid(list_win)
+          and not vim.api.nvim_win_is_valid(details_win)
+      end))
+      assert.equals(original_win, vim.api.nvim_get_current_win())
+    end)
+  end
+
   it("selects the filtered database with Enter in the search input", function()
     local search_win, list_win, details_win = open_selector()
     local search_buf = vim.api.nvim_win_get_buf(search_win)
