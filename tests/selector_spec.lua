@@ -1,6 +1,12 @@
 local databases = {
   { name = "local_postgres", type = "postgresql", database = "first" },
   { name = "local_mysql", type = "mysql", database = "second" },
+  dev = {
+    { name = "dev_postgres", type = "postgresql", database = "dev" },
+  },
+  prod = {
+    { name = "prod_mysql", type = "mysql", database = "prod" },
+  },
 }
 
 package.loaded["sqlflick.install"] = { ensure_installed = function() end }
@@ -96,6 +102,26 @@ describe("Database selector", function()
     assert.is_false(vim.api.nvim_win_is_valid(list_win))
     assert.is_false(vim.api.nvim_win_is_valid(details_win))
     assert.equals("n", vim.api.nvim_get_mode().mode)
+  end)
+
+  it("expands and collapses a database group with Enter", function()
+    local search_win, list_win, details_win = open_selector()
+    local search_buf = vim.api.nvim_win_get_buf(search_win)
+    local list_buf = vim.api.nvim_win_get_buf(list_win)
+
+    vim.api.nvim_buf_set_lines(search_buf, 0, -1, false, { "dev" })
+    vim.api.nvim_exec_autocmds("TextChangedI", { buffer = search_buf })
+    assert.same({ "▶ dev" }, vim.api.nvim_buf_get_lines(list_buf, 0, -1, false))
+
+    press(search_buf, "i", "<CR>")
+    assert.same({ "▼ dev", "    dev_postgres" }, vim.api.nvim_buf_get_lines(list_buf, 0, -1, false))
+    assert.is_true(vim.api.nvim_win_is_valid(details_win))
+
+    press(list_buf, "n", "<CR>")
+    assert.same({ "▶ dev" }, vim.api.nvim_buf_get_lines(list_buf, 0, -1, false))
+    assert.is_true(vim.api.nvim_win_is_valid(search_win))
+
+    press(list_buf, "n", "q")
   end)
 
   it("moves the filtered selection with Ctrl+n and Ctrl+p from the search input", function()

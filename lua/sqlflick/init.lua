@@ -83,7 +83,12 @@ local function show_database_selector()
   local function select_current_database()
     local items = tree.filter_items(tree.get_visible_items(root), search_term)
     local item = items[current_line]
-    if item and not item.is_category then
+    if item and item.is_category then
+      item.expanded = not item.expanded
+      items = tree.filter_items(tree.get_visible_items(root), search_term)
+      selector.render_tree(list_buf, items)
+      selector.update_selector_content(selector_buf, items, current_line)
+    elseif item then
       M.selected_database = item.db_config
       cache.save_cache("last_db", item.db_config)
       close_selector()
