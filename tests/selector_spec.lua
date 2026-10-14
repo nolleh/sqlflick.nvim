@@ -43,7 +43,7 @@ end
 
 local function press(buf, mode, lhs)
   for _, keymap in ipairs(vim.api.nvim_buf_get_keymap(buf, mode)) do
-    if keymap.lhs == lhs then
+    if keymap.lhs:lower() == lhs:lower() then
       keymap.callback()
       return
     end
@@ -96,6 +96,29 @@ describe("Database selector", function()
     assert.is_false(vim.api.nvim_win_is_valid(list_win))
     assert.is_false(vim.api.nvim_win_is_valid(details_win))
     assert.equals("n", vim.api.nvim_get_mode().mode)
+  end)
+
+  it("moves the filtered selection with Ctrl+n and Ctrl+p from the search input", function()
+    local search_win, list_win, details_win = open_selector()
+    local search_buf = vim.api.nvim_win_get_buf(search_win)
+    local list_buf = vim.api.nvim_win_get_buf(list_win)
+
+    vim.api.nvim_buf_set_lines(search_buf, 0, -1, false, { "local_" })
+    vim.api.nvim_exec_autocmds("TextChangedI", { buffer = search_buf })
+
+    press(search_buf, "i", "<C-n>")
+    assert.equals(2, vim.api.nvim_win_get_cursor(list_win)[1])
+    assert.equals(
+      "Name: local_mysql",
+      vim.api.nvim_buf_get_lines(vim.api.nvim_win_get_buf(details_win), 2, 3, false)[1]
+    )
+
+    press(search_buf, "i", "<C-p>")
+    assert.equals(1, vim.api.nvim_win_get_cursor(list_win)[1])
+
+    press(list_buf, "n", "<C-n>")
+    press(search_buf, "i", "<CR>")
+    assert.equals("local_mysql", sqlflick.selected_database.name)
   end)
 
   for _, closed_window in ipairs({ "search", "list", "details" }) do

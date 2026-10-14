@@ -149,25 +149,35 @@ local function show_database_selector()
   local opts = { buffer = list_buf, silent = true }
 
   -- Navigation keys
-  vim.keymap.set("n", "j", function()
-    local items = tree.get_visible_items(root)
-    items = tree.filter_items(items, search_term)
-    if current_line < #items then
-      current_line = current_line + 1
+  local function move_selection(offset)
+    local visible_items = tree.filter_items(tree.get_visible_items(root), search_term)
+    local next_line = current_line + offset
+    if next_line >= 1 and next_line <= #visible_items then
+      current_line = next_line
       vim.api.nvim_win_set_cursor(list_win, { current_line, 0 })
-      selector.update_selector_content(selector_buf, items, current_line)
+      selector.update_selector_content(selector_buf, visible_items, current_line)
     end
+  end
+
+  vim.keymap.set("n", "j", function()
+    move_selection(1)
   end, opts)
 
   vim.keymap.set("n", "k", function()
-    if current_line > 1 then
-      current_line = current_line - 1
-      vim.api.nvim_win_set_cursor(list_win, { current_line, 0 })
-      local items = tree.get_visible_items(root)
-      items = tree.filter_items(items, search_term)
-      selector.update_selector_content(selector_buf, items, current_line)
-    end
+    move_selection(-1)
   end, opts)
+
+  for _, buf in ipairs({ search_buf, list_buf }) do
+    local modes = buf == search_buf and { "n", "i" } or { "n" }
+    for _, mode in ipairs(modes) do
+      vim.keymap.set(mode, "<C-n>", function()
+        move_selection(1)
+      end, { buffer = buf, silent = true })
+      vim.keymap.set(mode, "<C-p>", function()
+        move_selection(-1)
+      end, { buffer = buf, silent = true })
+    end
+  end
 
   -- Expand/Collapse keys
   vim.keymap.set("n", "l", function()

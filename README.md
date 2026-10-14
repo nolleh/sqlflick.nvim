@@ -173,8 +173,9 @@ The following mappings are available for SQL-related file types (e.g., `.sql`, `
 | `SQLFlickExecuteBuf` | n    | `<leader>sq` | Execute current line query |
 | `SQLFlickExecute`    | v    | `<leader>sq` | Execute selected query     |
 
-In the database selector, type to filter connections and press Enter in the
-search input to select the highlighted database.
+In the database selector, type to filter connections, use `<C-n>` and `<C-p>`
+to move through the list, and press Enter in the search input to select the
+highlighted database.
 
 Completion is available in insert mode with Neovim's native `<C-x><C-o>`
 mapping. `:SQLFlickRefreshSchema` reloads metadata for the selected database.
