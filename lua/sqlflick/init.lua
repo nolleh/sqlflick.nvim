@@ -19,6 +19,7 @@ M.selected_database = cache.load_cache("last_db")
 
 -- Show database selection
 local function show_database_selector()
+  local original_mode = vim.api.nvim_get_mode().mode
   local search_buf, search_win, list_buf, list_win, selector_buf, selector_win =
     selector.create_selector_window(config.opts)
 
@@ -35,6 +36,44 @@ local function show_database_selector()
   local root = tree.build_tree(config.opts.databases)
   local current_line = 1
   local search_term = ""
+  local closing = false
+  local selector_group = vim.api.nvim_create_augroup("SQLFlickSelector" .. search_win, { clear = true })
+
+  local function close_selector()
+    if closing then
+      return
+    end
+    closing = true
+    vim.api.nvim_del_augroup_by_id(selector_group)
+    for _, win in ipairs({ selector_win, list_win, search_win }) do
+      if vim.api.nvim_win_is_valid(win) then
+        vim.api.nvim_win_close(win, true)
+      end
+    end
+    if original_mode == "n" then
+      vim.cmd("stopinsert")
+    end
+  end
+
+  for _, win in ipairs({ search_win, list_win, selector_win }) do
+    vim.api.nvim_create_autocmd("WinClosed", {
+      group = selector_group,
+      pattern = tostring(win),
+      callback = function()
+        vim.schedule(close_selector)
+      end,
+    })
+  end
+
+  local function select_current_database()
+    local items = tree.filter_items(tree.get_visible_items(root), search_term)
+    local item = items[current_line]
+    if item and not item.is_category then
+      M.selected_database = item.db_config
+      cache.save_cache("last_db", item.db_config)
+      close_selector()
+    end
+  end
 
   -- Initial render
   local items = tree.get_visible_items(root)
@@ -50,6 +89,7 @@ local function show_database_selector()
 
   -- Set up search input handling
   vim.api.nvim_create_autocmd("TextChangedI", {
+    group = selector_group,
     buffer = search_buf,
     callback = function()
       search_term = vim.api.nvim_buf_get_lines(search_buf, 0, 1, false)[1]
@@ -59,15 +99,20 @@ local function show_database_selector()
         current_line = 1
         vim.api.nvim_win_set_cursor(list_win, { current_line, 0 })
         selector.update_selector_content(selector_buf, items, current_line)
+      else
+        selector.update_selector_content(selector_buf, items, 1)
       end
     end,
   })
 
   -- Handle focus movement when exiting insert mode in search
   vim.api.nvim_create_autocmd("InsertLeave", {
+    group = selector_group,
     buffer = search_buf,
     callback = function()
-      vim.api.nvim_set_current_win(list_win)
+      if not closing and vim.api.nvim_win_is_valid(list_win) then
+        vim.api.nvim_set_current_win(list_win)
+      end
     end,
   })
 
@@ -148,24 +193,12 @@ local function show_database_selector()
   end, opts)
 
   -- Selection and quit
-  vim.keymap.set("n", "<CR>", function()
-    local items = tree.get_visible_items(root)
-    items = tree.filter_items(items, search_term)
-    local item = items[current_line]
-    if item and not item.is_category then
-      M.selected_database = item.db_config
-      cache.save_cache("last_db", item.db_config)
-      vim.api.nvim_win_close(selector_win, true)
-      vim.api.nvim_win_close(list_win, true)
-      vim.api.nvim_win_close(search_win, true)
-    end
-  end, opts)
-
-  vim.keymap.set("n", "q", function()
-    vim.api.nvim_win_close(selector_win, true)
-    vim.api.nvim_win_close(list_win, true)
-    vim.api.nvim_win_close(search_win, true)
-  end, opts)
+  vim.keymap.set("n", "<CR>", select_current_database, opts)
+  vim.keymap.set("i", "<CR>", select_current_database, { buffer = search_buf, silent = true })
+  vim.keymap.set("n", "<CR>", select_current_database, { buffer = search_buf, silent = true })
+  for _, buf in ipairs({ search_buf, list_buf, selector_buf }) do
+    vim.keymap.set("n", "q", close_selector, { buffer = buf, silent = true })
+  end
 
   -- Focus search window initially
   vim.api.nvim_set_current_win(search_win)

@@ -9,6 +9,9 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 ### Fixed
 
 - Bind the backend API to the local loopback address so it is not reachable through external network interfaces.
+- Allow Enter in the database search input to select the highlighted database.
+- Close all database selector windows together when any one of them closes.
+- Restore Normal mode after closing the database selector when it was opened from Normal mode.
 
 ### Changed
 
