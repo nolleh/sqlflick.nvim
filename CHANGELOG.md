@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog, and this project follows Semantic Versioning.
 
+## [0.6.4] - 2026-10-15
+
+### Added
+
+- Navigate database selector items with Ctrl+n and Ctrl+p while searching.
+
+### Fixed
+
+- Expand and collapse database groups with Enter in the selector.
+
 ## [0.6.3] - 2026-10-15
 
 ### Fixed
