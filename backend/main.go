@@ -11,7 +11,7 @@ import (
 	"strconv"
 )
 
-const VERSION = "0.6.1"
+const VERSION = "0.6.2"
 
 // QueryRequest represents an incoming SQL query request
 type QueryRequest struct {
@@ -265,7 +265,7 @@ func main() {
 	http.HandleFunc("/schema", jsonErrorMiddleware(handleSchema))
 
 	fmt.Printf("Starting SQLFlick backend server on port %d...\n", port)
-	if err := http.ListenAndServe(fmt.Sprintf(":%d", port), nil); err != nil {
+	if err := http.ListenAndServe(fmt.Sprintf("127.0.0.1:%d", port), nil); err != nil {
 		log.Fatal(err)
 	}
 }

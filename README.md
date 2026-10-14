@@ -129,7 +129,7 @@ Using [Lazy.nvim](https://github.com/folke/lazy.nvim):
 
     -- Backend settings
     backend = {
-        host = "localhost",
+        host = "127.0.0.1",
         port = 9081 -- use some unknown port that not conflicting with your environment
     },
 

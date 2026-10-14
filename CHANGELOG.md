@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog, and this project follows Semantic Versioning.
 
+## [0.6.2] - 2026-10-14
+
+### Fixed
+
+- Bind the backend API to the local loopback address so it is not reachable through external network interfaces.
+
+### Changed
+
+- Set the default backend host to `127.0.0.1` to match the listener.
+
 ## [0.6.1] - 2026-10-11
 
 ### Fixed
