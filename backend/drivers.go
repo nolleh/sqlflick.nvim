@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -22,6 +23,13 @@ type DatabaseDriver interface {
 	Close() error
 }
 
+// ContextDatabaseDriver propagates HTTP cancellation/deadlines into DB calls.
+type ContextDatabaseDriver interface {
+	QueryContext(context.Context, string) (QueryResult, error)
+	QueryWithPaginationContext(context.Context, string, *int, *int) (QueryResult, error)
+	CountContext(context.Context, string) (int64, error)
+}
+
 // Config holds database connection configuration
 type Config struct {
 	Host     string `json:"host"`
@@ -33,115 +41,186 @@ type Config struct {
 
 // PostgresDriver implements DatabaseDriver for PostgreSQL
 type PostgresDriver struct {
-	db *sql.DB
+	db      *sql.DB
+	release func() error
 }
 
 func (d *PostgresDriver) Connect(config Config) error {
 	connStr := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable",
 		config.Host, config.Port, config.User, config.Password, config.DBName)
-	db, err := sql.Open("postgres", connStr)
+	db, release, err := acquireSQLPool("postgres", connStr)
 	if err != nil {
 		return err
 	}
-	d.db = db
+	d.db, d.release = db, release
 	return nil
 }
 
 func (d *PostgresDriver) Query(query string) (QueryResult, error) {
-	return executeSQLQuery(d.db, query)
+	return d.QueryContext(context.Background(), query)
+}
+
+func (d *PostgresDriver) QueryContext(ctx context.Context, query string) (QueryResult, error) {
+	return executeSQLQueryContext(ctx, d.db, query)
 }
 
 func (d *PostgresDriver) QueryWithPagination(query string, limit *int, offset *int) (QueryResult, error) {
-	return executeSQLQueryWithPagination(d.db, query, limit, offset, "postgresql")
+	return d.QueryWithPaginationContext(context.Background(), query, limit, offset)
+}
+
+func (d *PostgresDriver) QueryWithPaginationContext(ctx context.Context, query string, limit *int, offset *int) (QueryResult, error) {
+	return executeSQLQueryWithPaginationContext(ctx, d.db, query, limit, offset, "postgresql")
 }
 
 func (d *PostgresDriver) Count(query string) (int64, error) {
-	return executeSQLCount(d.db, query)
+	return d.CountContext(context.Background(), query)
+}
+
+func (d *PostgresDriver) CountContext(ctx context.Context, query string) (int64, error) {
+	return executeSQLCountContext(ctx, d.db, query)
 }
 
 func (d *PostgresDriver) Close() error {
-	return d.db.Close()
+	if d.release != nil {
+		release := d.release
+		d.release = nil
+		return release()
+	}
+	return nil
 }
 
 // MySQLDriver implements DatabaseDriver for MySQL
 type MySQLDriver struct {
-	db *sql.DB
+	db      *sql.DB
+	release func() error
 }
 
 func (d *MySQLDriver) Connect(config Config) error {
 	connStr := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s",
 		config.User, config.Password, config.Host, config.Port, config.DBName)
-	db, err := sql.Open("mysql", connStr)
+	db, release, err := acquireSQLPool("mysql", connStr)
 	if err != nil {
 		return err
 	}
-	d.db = db
+	d.db, d.release = db, release
 	return nil
 }
 
 func (d *MySQLDriver) Query(query string) (QueryResult, error) {
-	return executeSQLQuery(d.db, query)
+	return d.QueryContext(context.Background(), query)
+}
+
+func (d *MySQLDriver) QueryContext(ctx context.Context, query string) (QueryResult, error) {
+	return executeSQLQueryContext(ctx, d.db, query)
 }
 
 func (d *MySQLDriver) QueryWithPagination(query string, limit *int, offset *int) (QueryResult, error) {
-	return executeSQLQueryWithPagination(d.db, query, limit, offset, "mysql")
+	return d.QueryWithPaginationContext(context.Background(), query, limit, offset)
+}
+
+func (d *MySQLDriver) QueryWithPaginationContext(ctx context.Context, query string, limit *int, offset *int) (QueryResult, error) {
+	return executeSQLQueryWithPaginationContext(ctx, d.db, query, limit, offset, "mysql")
 }
 
 func (d *MySQLDriver) Count(query string) (int64, error) {
-	return executeSQLCount(d.db, query)
+	return d.CountContext(context.Background(), query)
+}
+
+func (d *MySQLDriver) CountContext(ctx context.Context, query string) (int64, error) {
+	return executeSQLCountContext(ctx, d.db, query)
 }
 
 func (d *MySQLDriver) Close() error {
-	return d.db.Close()
+	if d.release != nil {
+		release := d.release
+		d.release = nil
+		return release()
+	}
+	return nil
 }
 
 // SQLiteDriver implements DatabaseDriver for SQLite
 type SQLiteDriver struct {
-	db *sql.DB
+	db      *sql.DB
+	release func() error
 }
 
 func (d *SQLiteDriver) Connect(config Config) error {
-	db, err := sql.Open("sqlite3", config.DBName)
+	db, release, err := acquireSQLPool("sqlite3", config.DBName)
 	if err != nil {
 		return err
 	}
-	d.db = db
+	d.db, d.release = db, release
 	return nil
 }
 
 func (d *SQLiteDriver) Query(query string) (QueryResult, error) {
-	return executeSQLQuery(d.db, query)
+	return d.QueryContext(context.Background(), query)
+}
+
+func (d *SQLiteDriver) QueryContext(ctx context.Context, query string) (QueryResult, error) {
+	return executeSQLQueryContext(ctx, d.db, query)
 }
 
 func (d *SQLiteDriver) QueryWithPagination(query string, limit *int, offset *int) (QueryResult, error) {
-	return executeSQLQueryWithPagination(d.db, query, limit, offset, "sqlite")
+	return d.QueryWithPaginationContext(context.Background(), query, limit, offset)
+}
+
+func (d *SQLiteDriver) QueryWithPaginationContext(ctx context.Context, query string, limit *int, offset *int) (QueryResult, error) {
+	return executeSQLQueryWithPaginationContext(ctx, d.db, query, limit, offset, "sqlite")
 }
 
 func (d *SQLiteDriver) Count(query string) (int64, error) {
-	return executeSQLCount(d.db, query)
+	return d.CountContext(context.Background(), query)
+}
+
+func (d *SQLiteDriver) CountContext(ctx context.Context, query string) (int64, error) {
+	return executeSQLCountContext(ctx, d.db, query)
 }
 
 func (d *SQLiteDriver) Close() error {
-	return d.db.Close()
+	if d.release != nil {
+		release := d.release
+		d.release = nil
+		return release()
+	}
+	return nil
 }
 
 // RedisDriver implements DatabaseDriver for Redis
 type RedisDriver struct {
-	client *redis.Client
-	ctx    context.Context
+	client  *redis.Client
+	release func() error
 }
 
 func (d *RedisDriver) Connect(config Config) error {
-	d.ctx = context.Background()
-	d.client = redis.NewClient(&redis.Options{
-		Addr:     fmt.Sprintf("%s:%d", config.Host, config.Port),
-		Password: config.Password,
-		DB:       0,
+	identity, _ := json.Marshal(config)
+	value, release, err := connectionPools.acquire(poolKey("redis", string(identity)), func() (interface{}, func() error, error) {
+		client := redis.NewClient(&redis.Options{
+			Addr: fmt.Sprintf("%s:%d", config.Host, config.Port),
+			Password: config.Password,
+			DB: 0,
+			PoolSize: maxPoolConnections,
+			MaxActiveConns: maxPoolConnections,
+			MaxIdleConns: 2,
+			ConnMaxIdleTime: poolIdleTimeout,
+			ContextTimeoutEnabled: true,
+			MaxRetries: -1,
+		})
+		return client, client.Close, nil
 	})
+	if err != nil {
+		return err
+	}
+	d.client, d.release = value.(*redis.Client), release
 	return nil
 }
 
 func (d *RedisDriver) Query(query string) (QueryResult, error) {
+	return d.QueryContext(context.Background(), query)
+}
+
+func (d *RedisDriver) QueryContext(ctx context.Context, query string) (QueryResult, error) {
 	// Parse Redis command
 	cmd, err := parseRedisCmd(query)
 	if err != nil {
@@ -149,7 +228,7 @@ func (d *RedisDriver) Query(query string) (QueryResult, error) {
 	}
 
 	// Execute command
-	response, err := d.client.Do(d.ctx, cmd...).Result()
+	response, err := d.client.Do(ctx, cmd...).Result()
 	if err != nil {
 		return QueryResult{}, err
 	}
@@ -162,68 +241,87 @@ func (d *RedisDriver) QueryWithPagination(query string, limit *int, offset *int)
 	return d.Query(query)
 }
 
+func (d *RedisDriver) QueryWithPaginationContext(ctx context.Context, query string, limit *int, offset *int) (QueryResult, error) {
+	return d.QueryContext(ctx, query)
+}
+
+func (d *RedisDriver) CountContext(ctx context.Context, query string) (int64, error) {
+	return d.Count(query)
+}
+
 func (d *RedisDriver) Count(query string) (int64, error) {
 	return 0, fmt.Errorf("count is not supported for Redis")
 }
 
 func (d *RedisDriver) Close() error {
-	return d.client.Close()
+	if d.release != nil {
+		release := d.release
+		d.release = nil
+		return release()
+	}
+	return nil
 }
 
 // OracleDriver implements DatabaseDriver for Oracle
 type OracleDriver struct {
-	db *sql.DB
+	db      *sql.DB
+	release func() error
 }
 
 func (d *OracleDriver) Connect(config Config) error {
-	// Use config values for connection
-	// urlOptions := map[string]string{
-	//  "SID": config.DBName, // Use DBName as SID (should be "XE")
-	// }
-	// connStr := go_ora.BuildUrl(config.Host, config.Port, "", config.User, config.Password, urlOptions)
-	// db, err := sql.Open("oracle", connStr)
-	// Use go-ora BuildUrl for Oracle connection string
 	connStr := fmt.Sprintf("oracle://%s:%s@%s:%d/%s", config.User,
 		config.Password, config.Host, config.Port, config.DBName)
-	db, err := sql.Open("oracle", connStr)
+	db, release, err := acquireSQLPool("oracle", connStr)
 	if err != nil {
-		return fmt.Errorf("%s, %s", err.Error(), connStr)
+		return fmt.Errorf("failed to configure Oracle connection: %w", err)
 	}
-	d.db = db
+	d.db, d.release = db, release
 	return nil
 }
 
 func (d *OracleDriver) Query(query string) (QueryResult, error) {
-	// Remove trailing semicolon if present
-	query = strings.TrimSpace(query)
-	if strings.HasSuffix(query, ";") {
-		query = strings.TrimSuffix(query, ";")
-	}
-	return executeSQLQuery(d.db, query)
+	return d.QueryContext(context.Background(), query)
+}
+
+func (d *OracleDriver) QueryContext(ctx context.Context, query string) (QueryResult, error) {
+	query = strings.TrimSuffix(strings.TrimSpace(query), ";")
+	return executeSQLQueryContext(ctx, d.db, query)
 }
 
 func (d *OracleDriver) QueryWithPagination(query string, limit *int, offset *int) (QueryResult, error) {
-	// Remove trailing semicolon if present
-	query = strings.TrimSpace(query)
-	if strings.HasSuffix(query, ";") {
-		query = strings.TrimSuffix(query, ";")
-	}
-	return executeSQLQueryWithPagination(d.db, query, limit, offset, "oracle")
+	return d.QueryWithPaginationContext(context.Background(), query, limit, offset)
+}
+
+func (d *OracleDriver) QueryWithPaginationContext(ctx context.Context, query string, limit *int, offset *int) (QueryResult, error) {
+	query = strings.TrimSuffix(strings.TrimSpace(query), ";")
+	return executeSQLQueryWithPaginationContext(ctx, d.db, query, limit, offset, "oracle")
 }
 
 func (d *OracleDriver) Count(query string) (int64, error) {
-	query = strings.TrimSpace(query)
-	query = strings.TrimSuffix(query, ";")
-	return executeSQLCount(d.db, query)
+	return d.CountContext(context.Background(), query)
+}
+
+func (d *OracleDriver) CountContext(ctx context.Context, query string) (int64, error) {
+	query = strings.TrimSuffix(strings.TrimSpace(query), ";")
+	return executeSQLCountContext(ctx, d.db, query)
 }
 
 func (d *OracleDriver) Close() error {
-	return d.db.Close()
+	if d.release != nil {
+		release := d.release
+		d.release = nil
+		return release()
+	}
+	return nil
 }
 
 // Helper function to execute SQL queries
 func executeSQLQuery(db *sql.DB, query string) (QueryResult, error) {
-	rows, err := db.Query(query)
+	return executeSQLQueryContext(context.Background(), db, query)
+}
+
+func executeSQLQueryContext(ctx context.Context, db *sql.DB, query string) (QueryResult, error) {
+	rows, err := db.QueryContext(ctx, query)
 	if err != nil {
 		return QueryResult{}, err
 	}
@@ -266,12 +364,16 @@ func executeSQLQuery(db *sql.DB, query string) (QueryResult, error) {
 }
 
 func executeSQLCount(db *sql.DB, query string) (int64, error) {
+	return executeSQLCountContext(context.Background(), db, query)
+}
+
+func executeSQLCountContext(ctx context.Context, db *sql.DB, query string) (int64, error) {
 	query = strings.TrimSpace(query)
 	query = strings.TrimSuffix(query, ";")
 	countQuery := fmt.Sprintf("SELECT COUNT(*) FROM (%s) t", query)
 
 	var count int64
-	if err := db.QueryRow(countQuery).Scan(&count); err != nil {
+	if err := db.QueryRowContext(ctx, countQuery).Scan(&count); err != nil {
 		return 0, err
 	}
 	return count, nil
@@ -279,6 +381,10 @@ func executeSQLCount(db *sql.DB, query string) (int64, error) {
 
 // Helper function to execute SQL queries with pagination
 func executeSQLQueryWithPagination(db *sql.DB, query string, limit *int, offset *int, dbType string) (QueryResult, error) {
+	return executeSQLQueryWithPaginationContext(context.Background(), db, query, limit, offset, dbType)
+}
+
+func executeSQLQueryWithPaginationContext(ctx context.Context, db *sql.DB, query string, limit *int, offset *int, dbType string) (QueryResult, error) {
 	// Build paginated query based on database type
 	// This is a basic implementation - in production, you might want to parse SQL properly
 
@@ -335,7 +441,7 @@ func executeSQLQueryWithPagination(db *sql.DB, query string, limit *int, offset 
 		}
 	}
 
-	return executeSQLQuery(db, paginatedQuery)
+	return executeSQLQueryContext(ctx, db, paginatedQuery)
 }
 
 // parseRedisCmd parses string command into args for redis.Do

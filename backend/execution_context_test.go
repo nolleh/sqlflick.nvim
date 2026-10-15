@@ -71,7 +71,7 @@ func installExecutionProbe(t *testing.T) *executionContextProbe {
 	t.Helper()
 	probe := &executionContextProbe{started: make(chan context.Context, 1)}
 	original := drivers
-	drivers = map[string]DatabaseDriver{"test-context": probe}
+	drivers = map[string]func() DatabaseDriver{"test-context": func() DatabaseDriver { return probe }}
 	t.Cleanup(func() { drivers = original })
 	return probe
 }
@@ -189,6 +189,43 @@ func TestHandleExecution_ContextPathStillReturnsSuccessfulResults(t *testing.T) 
 			}
 			if !probe.closed {
 				t.Error("successful execution did not release its driver")
+			}
+		})
+	}
+}
+
+func TestExecutionErrorsRemainStructuredThroughMiddleware(t *testing.T) {
+	for _, test := range []struct {
+		name string
+		deadline bool
+		code string
+	}{
+		{"cancelled", false, "cancelled"},
+		{"deadline", true, "timeout"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			installExecutionProbe(t)
+			var ctx context.Context
+			var cancel context.CancelFunc
+			if test.deadline {
+				ctx, cancel = context.WithDeadline(context.Background(), time.Now().Add(-time.Second))
+			} else {
+				ctx, cancel = context.WithCancel(context.Background())
+				cancel()
+			}
+			defer cancel()
+			req := executionRequest(t, "/query", false, "WAIT", 500).WithContext(ctx)
+			recorder := httptest.NewRecorder()
+			jsonErrorMiddleware(handleQuery)(recorder, req)
+			var result ErrorResponse
+			if err := json.Unmarshal(recorder.Body.Bytes(), &result); err != nil {
+				t.Fatal(err)
+			}
+			if result.ErrorCode != test.code {
+				t.Fatalf("error was lost/double-wrapped: %s", recorder.Body.String())
+			}
+			if recorder.Header().Get("Content-Type") != "application/json" {
+				t.Fatal("error response is not JSON")
 			}
 		})
 	}

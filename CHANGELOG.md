@@ -4,6 +4,20 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog, and this project follows Semantic Versioning.
 
+## [Unreleased]
+
+### Added
+
+- Run query commands asynchronously with `:SQLFlickCancel` and configurable per-request timeouts.
+- Propagate request cancellation and deadlines into SQL and Redis operations.
+- Reuse bounded connection pools per connection setting while isolating request state.
+- Check backend readiness asynchronously and ignore cancelled or superseded results.
+
+### Changed
+
+- Preserve window focus when asynchronous results arrive and pin pagination to its original database.
+- Prepare backend version `0.7.0`; rebuild with `:SQLFlickInstall` after updating.
+
 ## [0.6.5] - 2026-10-15
 
 ### Changed

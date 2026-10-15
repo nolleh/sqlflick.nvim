@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"database/sql"
 	"encoding/json"
 	"net/http"
@@ -105,8 +106,8 @@ func TestHandleQuery_SQLite_Success(t *testing.T) {
 	defer db.Close()
 
 	origDrivers := drivers
-	drivers = map[string]DatabaseDriver{
-		"sqlite": &testSQLiteDriver{db: db},
+	drivers = map[string]func() DatabaseDriver{
+		"sqlite": func() DatabaseDriver { return &testSQLiteDriver{db: db} },
 	}
 	defer func() { drivers = origDrivers }()
 
@@ -142,8 +143,8 @@ func TestHandleQuery_SQLite_WithPagination(t *testing.T) {
 	defer db.Close()
 
 	origDrivers := drivers
-	drivers = map[string]DatabaseDriver{
-		"sqlite": &testSQLiteDriver{db: db},
+	drivers = map[string]func() DatabaseDriver{
+		"sqlite": func() DatabaseDriver { return &testSQLiteDriver{db: db} },
 	}
 	defer func() { drivers = origDrivers }()
 
@@ -221,8 +222,8 @@ func TestHandleCount_SQLite_Success(t *testing.T) {
 	defer db.Close()
 
 	origDrivers := drivers
-	drivers = map[string]DatabaseDriver{
-		"sqlite": &testSQLiteDriver{db: db},
+	drivers = map[string]func() DatabaseDriver{
+		"sqlite": func() DatabaseDriver { return &testSQLiteDriver{db: db} },
 	}
 	defer func() { drivers = origDrivers }()
 
@@ -337,4 +338,14 @@ func setupSQLiteTestDB(t *testing.T) *sql.DB {
 		t.Fatalf("failed to setup test db: %v", err)
 	}
 	return db
+}
+
+func (d *testSQLiteDriver) QueryContext(ctx context.Context, query string) (QueryResult, error) {
+	return executeSQLQueryContext(ctx, d.db, query)
+}
+func (d *testSQLiteDriver) QueryWithPaginationContext(ctx context.Context, query string, limit *int, offset *int) (QueryResult, error) {
+	return executeSQLQueryWithPaginationContext(ctx, d.db, query, limit, offset, "sqlite")
+}
+func (d *testSQLiteDriver) CountContext(ctx context.Context, query string) (int64, error) {
+	return executeSQLCountContext(ctx, d.db, query)
 }

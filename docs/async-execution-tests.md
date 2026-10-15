@@ -1,84 +1,78 @@
-# Async execution: tests first
+# Asynchronous execution and validation
 
-This branch adds failing specifications, not the feature implementation. It starts
-from main at `ba8384fbae1be3b835d150ee6d74f6ee18c95f8e` (v0.6.5).
+Query commands execute through asynchronous curl jobs, with cancellation and
+per-request timeouts propagated into database operations. Programmatic calls
+without a callback and schema omni-completion retain their synchronous APIs.
 
-## Expected behavior
+## Behavior and usage
 
-- Query execution returns control to Neovim while the request is pending.
-- Regular queries, COUNT, and page requests all use asynchronous transport.
-- The existing handler methods accept a final callback and return a request with
-  `cancel()`. Calls without a callback retain their existing behavior.
-- Request bodies use JSON through stdin and an argument array, preserving quotes.
-- `backend.timeout_ms` bounds each HTTP request, is sent as `timeout_ms`, and is
-  enforced in the backend database context as well as the transport.
-- Callbacks run on the main loop exactly once, including cancellation, timeout,
-  process startup failure, connection failure, and malformed responses.
-- Callback results retain the existing result shape. Client-side errors include
-  an `error` message and an `error_code` of `cancelled`, `timeout`,
-  `transport`, or `invalid_response`.
-- `:SQLFlickCancel` cancels the active stage, including an in-flight COUNT.
-  Cancelling while idle is harmless.
-- Cancellation and timeout never trigger fallback execution of the original SQL.
-- A new execution supersedes the previous execution. Late responses cannot render
-  stale results or start another stage.
-- An execution and its page refreshes retain their original database even if the
-  user selects another database.
-- Closing Neovim cancels pending execution.
-- Cancelling one request does not cancel another request.
+- Requires Neovim 0.10+ and curl. Updating the backend requires Go.
+- Use `:SQLFlickCancel` to cancel the active COUNT, query, or page request.
+- `backend.timeout_ms` defaults to 30000 ms; accepted values are integer
+  milliseconds from 1 to 3600000. Each COUNT/page HTTP request has its own budget.
+- A new execution supersedes the old one. Late callbacks are ignored and cannot
+  start another stage or overwrite newer results.
+- Timeout/transport failure never triggers fallback execution of the SQL.
+  Ordinary SQL errors from COUNT may still fall back to the original SELECT.
+- Results preserve the user's current window focus. Pagination stays attached to
+  the database that produced the result, even after database selection changes.
+- Startup uses bounded, asynchronous `/health` probes. SQL is never retried on
+  ambiguous transport failure. Health protocol 1 is required.
+- Rebuild with `:SQLFlickInstall`, wait for completion, and then run
+  `:SQLFlickRestart`. Backend/install version is prepared as `0.7.0`.
 
-The callback contract is exercised through public commands and handler methods;
-the tests do not prescribe a new controller module or internal state layout.
+The handler methods accept a final callback and return a request with `cancel()`.
+Callbacks run on the main loop once. Results retain their existing shape; error
+results include an `error` message and an `error_code`: `cancelled`, `timeout`,
+`transport`, `invalid_response`, or the backend's `query` error.
 
-## Test groups
+## Connection lifecycle
+
+Driver wrappers contain per-request state. Their `Connect` methods lease shared
+`sql.DB` / Redis pools keyed by complete connection identity, including credentials.
+`Close` returns the lease instead of shutting down the pool. Cache keys hash the
+connection identity rather than retaining passwords as map keys.
+
+The cache has at most 16 pools. Each SQL/Redis pool has at most 5 active connections
+and 2 idle connections; SQLite allows one connection. A 5-minute idle period or
+capacity pressure evicts unused pools on the next acquisition. Active pools are
+never evicted; if all slots are active, another connection configuration receives
+an error instead of allocating more pools. Private SQLite `:memory:` databases
+remain request-local so state cannot leak between requests.
+
+## Tests
 
 | File | Cases | Focus |
 | --- | ---: | --- |
-| `tests/handler_async_spec.lua` | 23 | Nonblocking transport, cancellation, timeout, errors, quote preservation |
-| `tests/execution_async_spec.lua` | 12 | Command, COUNT, page, stale response, DB selection, and exit behavior |
-| `backend/execution_context_test.go` | 9 | Context propagation, cancellation, deadline, cleanup, successful responses |
+| `tests/handler_async_spec.lua` | 28 | Async transport, startup, cancellation, timeout, errors, quote preservation |
+| `tests/execution_async_spec.lua` | 14 | Command/COUNT/page sequencing, stale callbacks, DB selection, focus, shutdown |
+| `backend/execution_context_test.go` | 11 | Request context, deadlines, cancellation, cleanup, success |
+| `backend/pools_test.go` | 7 | Pool reuse, caps, concurrency, expiry, identity, SQLite cancellation/reuse |
 
-The Lua transport tests hold process completion callbacks until explicitly fired.
-The command tests hold HTTP results pending. Neither suite needs a database,
-real curl process, or timing sleeps. The Go tests use a context-aware bounded
-probe and channels, with watchdogs to prevent hanging the runner.
+In the authoring environment, all 42 new Lua tests and the existing 18
+quote-preservation tests pass under Lua 5.4 with Neovim API substitutes.
+This does not verify native Neovim scheduling, Go compilation, or live DB behavior.
+The native suites could not run: Neovim and the Go language toolchain are absent,
+and downloading Plenary through the environment's network proxy fails.
 
-## Run
+## Before merging
 
-With Neovim and Plenary available:
+With the native tools and dependencies installed:
 
 ```sh
 make test
-```
-
-With the Go toolchain and module dependencies available:
-
-```sh
 cd backend
-go test -race -run TestHandleExecution_ -count=1 -timeout=30s ./...
+gofmt -w main.go drivers.go pools.go *_test.go
+go test -race -count=1 -timeout=60s ./...
 ```
 
-These new tests are expected to fail on this branch until production code is
-implemented. They must not be disabled or changed to pending tests to make CI
-green.
+For a PostgreSQL check, configure `backend.timeout_ms = 1000`, execute
+`WITH wait AS MATERIALIZED (SELECT pg_sleep(30)) SELECT * FROM wait;`, and confirm
+that editing remains responsive and timeout is reported. Increase the timeout,
+repeat the query, and cancel it with `:SQLFlickCancel`; inspect `pg_stat_activity`
+to confirm database work ends. Then execute `SELECT 1` to check continued use.
+Also check rapid query/page changes and database switching while COUNT is pending.
 
-## Validation in the authoring environment
-
-- Existing quote-preservation tests: 18 passed under Lua 5.4 with Neovim API
-  substitutes, including shell handling.
-- New Lua tests: 35 failed against the current production implementation, because
-  transport is synchronous and command execution does not supply callbacks.
-- Native `make test`: blocked while fetching Plenary by the unavailable network
-  proxy; Neovim is also absent.
-- Go tests: not executed because a Go compiler is not installed. The executable
-  named `go` in this image is not the Go language toolchain.
-
-The Lua substitute run verifies the expected initial failures, not native
-Neovim scheduling or end-to-end database cancellation.
-
-## Before shipping the implementation
-
-Run the native suites and confirm real database cancellation, timeout, and
-connection reuse. The current backend shares mutable driver instances by DB
-type; request isolation must be addressed before enabling overlapping requests.
-Cancellation requests a stop; it does not promise rollback of committed writes.
+Cancellation asks the driver to stop work and does not roll back committed writes.
+Live cancellation behavior remains to be checked for PostgreSQL, MySQL, SQLite,
+Redis, and Oracle; it depends on each database driver's cancellation support.

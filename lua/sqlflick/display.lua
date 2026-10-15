@@ -191,7 +191,7 @@ function M.create_display_window()
   return buf, win
 end
 
-function M.map_column_navigator()
+function M.map_column_navigator(buf)
   local query = require("sqlflick.query")
   local col_num = query.get_column_number()
 
@@ -201,7 +201,7 @@ function M.map_column_navigator()
       local cursor_pos = vim.api.nvim_win_get_cursor(0)
       local line_num = cursor_pos[1]
       vim.fn.cursor(line_num, column_start_pos)
-    end, { desc = "Navigate cursor to column" })
+    end, { buffer = buf, desc = "Navigate cursor to column" })
   end
 end
 

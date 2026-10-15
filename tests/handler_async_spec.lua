@@ -18,7 +18,7 @@ local methods = {
 }
 
 describe("Asynchronous query requests", function()
-  local saved, jobs, scheduled, handler, results
+  local saved, jobs, scheduled, handler, results, spawned
 
   local function flush()
     while #scheduled > 0 do
@@ -44,16 +44,27 @@ describe("Asynchronous query requests", function()
       system = vim.system,
       blocking_system = vim.fn.system,
       schedule = vim.schedule,
+      defer_fn = vim.defer_fn,
+      spawn = vim.loop.spawn,
+      filereadable = vim.fn.filereadable,
+      install = package.loaded["sqlflick.install"],
     }
     package.loaded[module_name] = nil
     package.loaded.http = nil
     package.preload.http = function()
       return { request = function() error("blocking HTTP used by async execution") end }
     end
-    jobs, scheduled, results = {}, {}, {}
+    jobs, scheduled, results, spawned = {}, {}, {}, {}
     vim.fn.system = function() error("blocking vim.fn.system used by async execution") end
     vim.schedule = function(callback)
       table.insert(scheduled, callback)
+    end
+    vim.defer_fn = function(callback) table.insert(scheduled, callback) end
+    vim.fn.filereadable = function() return 1 end
+    package.loaded["sqlflick.install"] = { bin = function() return "/test/sqlflick-backend" end }
+    vim.loop.spawn = function(path, opts)
+      table.insert(spawned, { path = path, opts = opts })
+      return { kill = function() end }
     end
     vim.system = function(command, opts, on_exit)
       local job = { command = command, opts = opts, on_exit = on_exit, signals = {} }
@@ -68,6 +79,7 @@ describe("Asynchronous query requests", function()
     end
     handler = require(module_name):new(backend.port)
     handler.process = true -- Backend startup is outside this transport unit test.
+    handler.ready = true
   end)
 
   after_each(function()
@@ -77,6 +89,10 @@ describe("Asynchronous query requests", function()
     vim.system = saved.system
     vim.fn.system = saved.blocking_system
     vim.schedule = saved.schedule
+    vim.defer_fn = saved.defer_fn
+    vim.loop.spawn = saved.spawn
+    vim.fn.filereadable = saved.filereadable
+    package.loaded["sqlflick.install"] = saved.install
   end)
 
   for _, method in ipairs(methods) do
@@ -189,5 +205,64 @@ describe("Asynchronous query requests", function()
     flush()
     assert.equals(1, #results)
     assert.equals("transport", results[1].error_code)
+  end)
+
+  it("probes a running backend before sending SQL on first use", function()
+    handler.process = nil
+    handler.ready = false
+    start(methods[1])
+    assert.matches("/health", jobs[1].command[#jobs[1].command], 1, true)
+    assert.equals(0, #spawned)
+    jobs[1].on_exit({ code = 0, stdout = '{"version":"0.7.0","protocol":1}', stderr = "" })
+    flush()
+    assert.equals(2, #jobs)
+    assert.matches("/query", jobs[2].command[#jobs[2].command], 1, true)
+  end)
+
+  it("starts the backend asynchronously and waits for readiness before SQL", function()
+    handler.process = nil
+    handler.ready = false
+    start(methods[1])
+    jobs[1].on_exit({ code = 7, stdout = "", stderr = "connection refused" })
+    flush()
+    assert.equals(1, #spawned)
+    assert.equals(2, #jobs)
+    assert.matches("/health", jobs[2].command[#jobs[2].command], 1, true)
+    jobs[2].on_exit({ code = 0, stdout = '{"version":"0.7.0","protocol":1}', stderr = "" })
+    flush()
+    assert.equals(3, #jobs)
+    assert.matches("/query", jobs[3].command[#jobs[3].command], 1, true)
+  end)
+
+  it("can cancel backend readiness without ever sending SQL", function()
+    handler.process = nil
+    handler.ready = false
+    local request = start(methods[1])
+    request:cancel()
+    jobs[1].on_exit({ code = 0, stdout = '{"version":"0.7.0","protocol":1}', stderr = "" })
+    flush()
+    assert.equals(1, #jobs)
+    assert.equals(0, #spawned)
+    assert.equals(1, #results)
+    assert.equals("cancelled", results[1].error_code)
+  end)
+
+  it("rejects an old backend instead of silently ignoring database timeouts", function()
+    handler.process = nil
+    handler.ready = false
+    start(methods[1])
+    jobs[1].on_exit({ code = 0, stdout = '{"version":"0.6.5"}', stderr = "" })
+    flush()
+    assert.equals(1, #jobs)
+    assert.equals(1, #results)
+    assert.equals("transport", results[1].error_code)
+  end)
+
+  it("rejects a JSON response without the expected count field", function()
+    start(methods[2])
+    jobs[1].on_exit({ code = 0, signal = 0, stdout = "{}", stderr = "" })
+    flush()
+    assert.equals(1, #results)
+    assert.equals("invalid_response", results[1].error_code)
   end)
 end)

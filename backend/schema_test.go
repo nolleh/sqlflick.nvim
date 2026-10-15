@@ -66,8 +66,8 @@ func TestSQLiteSchemaIncludesTablesViewsAndColumns(t *testing.T) {
 
 func TestHandleSchemaReturnsProviderMetadata(t *testing.T) {
 	originalDrivers := drivers
-	drivers = map[string]DatabaseDriver{
-		"schema_stub": &schemaStubDriver{},
+	drivers = map[string]func() DatabaseDriver{
+		"schema_stub": func() DatabaseDriver { return &schemaStubDriver{} },
 	}
 	defer func() { drivers = originalDrivers }()
 
