@@ -17,6 +17,28 @@ local completion = require("sqlflick.completion")
 
 M.selected_database = cache.load_cache("last_db")
 
+local function execute_query_text(query_text, db)
+  if not pagination.can_paginate(query_text, db) then
+    pagination.reset()
+    return M.execute(query_text, db, config.opts.backend)
+  end
+
+  local count_result = M.execute_count(query_text, db, config.opts.backend)
+  if count_result.error then
+    pagination.reset()
+    return M.execute(query_text, db, config.opts.backend)
+  end
+
+  if count_result.count > pagination.get_page_size() then
+    local page_size = pagination.get_page_size()
+    pagination.init(query_text, db, config.opts.backend, count_result.count)
+    return M.execute_with_pagination(query_text, db, config.opts.backend, page_size, 0)
+  end
+
+  pagination.reset()
+  return M.execute(query_text, db, config.opts.backend)
+end
+
 -- Show database selection
 local function show_database_selector()
   local original_mode = vim.api.nvim_get_mode().mode
@@ -376,21 +398,7 @@ function M.setup(opts)
     -- Use the selected database or default to the first one
     local db = M.selected_database or config.opts.databases[1]
 
-    local count_result = M.execute_count(query_text, db, config.opts.backend)
-    local result
-
-    if count_result.error then
-      pagination.reset()
-      result = { error = count_result.error }
-    elseif count_result.count > pagination.get_page_size() then
-      local page_size = pagination.get_page_size()
-      local total_rows = count_result.count
-      pagination.init(query_text, db, config.opts.backend, total_rows)
-      result = M.execute_with_pagination(query_text, db, config.opts.backend, page_size, 0)
-    else
-      pagination.reset()
-      result = M.execute(query_text, db, config.opts.backend)
-    end
+    local result = execute_query_text(query_text, db)
 
     if result then
       if M.display_win and vim.api.nvim_win_is_valid(M.display_win) then
@@ -465,21 +473,7 @@ function M.setup(opts)
     -- Use the selected database or default to the first one
     local db = M.selected_database or config.opts.databases[1]
 
-    local count_result = M.execute_count(query_text, db, config.opts.backend)
-    local result
-
-    if count_result.error then
-      pagination.reset()
-      result = { error = count_result.error }
-    elseif count_result.count > pagination.get_page_size() then
-      local page_size = pagination.get_page_size()
-      local total_rows = count_result.count
-      pagination.init(query_text, db, config.opts.backend, total_rows)
-      result = M.execute_with_pagination(query_text, db, config.opts.backend, page_size, 0)
-    else
-      pagination.reset()
-      result = M.execute(query_text, db, config.opts.backend)
-    end
+    local result = execute_query_text(query_text, db)
 
     if result then
       if M.display_win and vim.api.nvim_win_is_valid(M.display_win) then

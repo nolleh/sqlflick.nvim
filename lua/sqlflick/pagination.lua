@@ -2,6 +2,35 @@ local M = {}
 
 local config = require("sqlflick.config")
 
+-- Only SQL SELECT queries can be wrapped in a count subquery and paginated.
+function M.can_paginate(query_text, db_config)
+  if not db_config or not vim.tbl_contains({ "postgresql", "mysql", "sqlite", "oracle" }, db_config.type) then
+    return false
+  end
+
+  local query = query_text
+  while true do
+    query = query:gsub("^%s+", "")
+    if query:sub(1, 2) == "--" then
+      local newline = query:find("\n", 1, true)
+      if not newline then
+        return false
+      end
+      query = query:sub(newline + 1)
+    elseif query:sub(1, 2) == "/*" then
+      local closing = query:find("*/", 3, true)
+      if not closing then
+        return false
+      end
+      query = query:sub(closing + 2)
+    else
+      break
+    end
+  end
+
+  return query:upper():match("^SELECT%f[^%a]") ~= nil
+end
+
 -- Pagination state
 M.state = {
   enabled = false,
