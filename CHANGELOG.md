@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog, and this project follows Semantic Versioning.
 
+## [0.6.5] - 2026-10-15
+
+### Changed
+
+- Store only the selected database ID in a versioned, restricted-permission cache.
+- Discard legacy caches containing connection details and require database selection before executing a query when no valid selection is available.
+- Document environment variable injection for database passwords.
+
+### Fixed
+
+- Run count queries only for supported SQL `SELECT` statements, allowing writes and Redis commands to execute without SQL count wrapping.
+
 ## [0.6.4] - 2026-10-15
 
 ### Added
