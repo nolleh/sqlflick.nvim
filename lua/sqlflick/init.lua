@@ -14,6 +14,7 @@ local deps = require("sqlflick.deps")
 local cache = require("sqlflick.cache")
 local pagination = require("sqlflick.pagination")
 local completion = require("sqlflick.completion")
+local statement = require("sqlflick.statement")
 
 M.selected_database = nil
 
@@ -350,7 +351,7 @@ function M.setup(opts)
       "n",
       "<leader>sq",
       ":SQLFlickExecuteBuf<CR>",
-      { silent = true, desc = "Execute SQL query on current line", buffer = true }
+      { silent = true, desc = "Execute SQL statement at cursor", buffer = true }
     )
     vim.keymap.set("v", "<leader>sq", function()
       -- Get visual selection range
@@ -446,34 +447,15 @@ function M.setup(opts)
       local lines = vim.api.nvim_buf_get_lines(0, start_pos[1] - 1, end_pos[1], false)
       query_text = table.concat(lines, "\n")
     else
-      -- Normal mode: parse query containing cursor
-      local cursor_line = vim.api.nvim_win_get_cursor(0)[1]
+      -- Normal mode: split only on semicolons outside comments/quoted text.
+      local cursor = vim.api.nvim_win_get_cursor(0)
       local all_lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
-
-      local start_line = cursor_line
-      while start_line > 1 do
-        local prev_line = all_lines[start_line - 1]
-        if prev_line:match("^%s*$") or prev_line:match(";%s*$") then
-          break
-        end
-        start_line = start_line - 1
+      local err
+      query_text, err = statement.at_cursor(all_lines, cursor[1], cursor[2], db.type)
+      if not query_text then
+        vim.notify(err, vim.log.levels.ERROR)
+        return
       end
-
-      local end_line = cursor_line
-      while end_line < #all_lines do
-        local next_line = all_lines[end_line]
-        if next_line:match("^%s*$") or next_line:match(";%s*$") then
-          break
-        end
-        end_line = end_line + 1
-      end
-
-      -- Extract the query
-      local query_lines = {}
-      for i = start_line, end_line do
-        table.insert(query_lines, all_lines[i])
-      end
-      query_text = table.concat(query_lines, "\n")
     end
 
     if query_text == "" then
