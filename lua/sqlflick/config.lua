@@ -7,13 +7,14 @@ M.opts = {
   databases = {
     -- Example database configurations
     -- {
+    --     id = "local-postgres", -- Stable cache ID; defaults to name when omitted
     --     name = "local_postgres",
     --     type = "postgresql",
     --     host = "localhost",
     --     port = 5432,
     --     database = "mydb",
     --     username = "user",
-    --     password = "pass"
+    --     password = vim.env.MY_DB_PASSWORD,
     -- },
     -- {
     --     name = "local_mysql",
@@ -22,7 +23,7 @@ M.opts = {
     --     port = 3306,
     --     database = "mydb",
     --     username = "user",
-    --     password = "pass"
+    --     password = vim.env.MY_DB_PASSWORD,
     -- },
     -- {
     --     name = "local_sqlite",
@@ -34,7 +35,7 @@ M.opts = {
     -- 	type = "redis",
     -- 	host = "localhost",
     -- 	port = 6379,
-    -- 	password = "pass",
+    -- 	password = vim.env.REDIS_PASSWORD,
     -- },
     -- {
     --     name = "local_oracle",
@@ -43,7 +44,7 @@ M.opts = {
     --     port = 1521,
     --     database = "orclpdb1", -- service name
     --     username = "user",
-    --     password = "pass"
+    --     password = vim.env.ORACLE_PASSWORD,
     -- },
   },
   -- Selector window settings

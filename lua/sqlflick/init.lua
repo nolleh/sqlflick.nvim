@@ -15,7 +15,15 @@ local cache = require("sqlflick.cache")
 local pagination = require("sqlflick.pagination")
 local completion = require("sqlflick.completion")
 
-M.selected_database = cache.load_cache("last_db")
+M.selected_database = nil
+
+local function selected_database_or_notify()
+  if M.selected_database then
+    return M.selected_database
+  end
+  vim.notify("Select a database with :SQLFlickSelectDB before executing a query", vim.log.levels.ERROR)
+  return nil
+end
 
 local function execute_query_text(query_text, db)
   if not pagination.can_paginate(query_text, db) then
@@ -112,7 +120,12 @@ local function show_database_selector()
       selector.update_selector_content(selector_buf, items, current_line)
     elseif item then
       M.selected_database = item.db_config
-      cache.save_cache("last_db", item.db_config)
+      local id = item.db_config.id or item.db_config.name
+      if tree.find_database_by_id(config.opts.databases, id) then
+        cache.save_selected_id(id)
+      else
+        cache.save_selected_id(nil)
+      end
       close_selector()
     end
   end
@@ -264,6 +277,7 @@ end
 -- Setup function that will be called by users
 function M.setup(opts)
   config.setup(opts)
+  M.selected_database = tree.find_database_by_id(config.opts.databases, cache.load_selected_id())
 
   -- Check and install dependencies
   if config.use_lua_http then
@@ -281,7 +295,7 @@ function M.setup(opts)
 
   completion.setup({
     get_database = function()
-      return M.selected_database or config.opts.databases[1]
+      return M.selected_database
     end,
     fetch_schema = function(database)
       return M.fetch_schema(database, config.opts.backend)
@@ -390,13 +404,10 @@ function M.setup(opts)
   -- Create query execution command
   vim.api.nvim_create_user_command("SQLFlickExecute", function(opts)
     local query_text = opts.args
-    if #config.opts.databases == 0 then
-      vim.notify("No databases configured", vim.log.levels.ERROR)
+    local db = selected_database_or_notify()
+    if not db then
       return
     end
-
-    -- Use the selected database or default to the first one
-    local db = M.selected_database or config.opts.databases[1]
 
     local result = execute_query_text(query_text, db)
 
@@ -420,8 +431,8 @@ function M.setup(opts)
 
   -- Create file-based query execution command
   vim.api.nvim_create_user_command("SQLFlickExecuteBuf", function()
-    if #config.opts.databases == 0 then
-      vim.notify("No databases configured", vim.log.levels.ERROR)
+    local db = selected_database_or_notify()
+    if not db then
       return
     end
 
@@ -469,9 +480,6 @@ function M.setup(opts)
       vim.notify("No query text found", vim.log.levels.ERROR)
       return
     end
-
-    -- Use the selected database or default to the first one
-    local db = M.selected_database or config.opts.databases[1]
 
     local result = execute_query_text(query_text, db)
 
@@ -559,7 +567,7 @@ function M.refresh_current_page()
     return
   end
 
-  local db = M.selected_database or config.opts.databases[1]
+  local db = M.selected_database
   if not db then
     return
   end

@@ -11,8 +11,8 @@ local databases = {
 
 package.loaded["sqlflick.install"] = { ensure_installed = function() end }
 package.loaded["sqlflick.cache"] = {
-  load_cache = function() end,
-  save_cache = function() end,
+  load_selected_id = function() end,
+  save_selected_id = function() end,
 }
 
 local sqlflick = require("sqlflick")
@@ -58,6 +58,38 @@ local function press(buf, mode, lhs)
 end
 
 describe("Database selector", function()
+  it("resolves cached IDs from current config only when unique", function()
+    local tree = require("sqlflick.tree")
+    assert.equals(databases.dev[1], tree.find_database_by_id(databases, "dev_postgres"))
+    local updated = { id = "production", name = "prod", password = "current-secret" }
+    assert.equals(updated, tree.find_database_by_id({ updated }, "production"))
+    assert.is_nil(tree.find_database_by_id(databases, "missing"))
+    assert.is_nil(tree.find_database_by_id({ databases[1], databases[1] }, "local_postgres"))
+  end)
+
+  it("requires a selected database before either query command runs", function()
+    sqlflick.selected_database = nil
+    local original_execute = sqlflick.execute
+    local original_notify = vim.notify
+    local executed = false
+    local notifications = {}
+    sqlflick.execute = function()
+      executed = true
+    end
+    vim.notify = function(message)
+      table.insert(notifications, message)
+    end
+
+    vim.cmd("SQLFlickExecute SELECT 1")
+    vim.cmd("SQLFlickExecuteBuf")
+
+    sqlflick.execute = original_execute
+    vim.notify = original_notify
+    assert.is_false(executed)
+    assert.equals(2, #notifications)
+    assert.matches("SQLFlickSelectDB", notifications[1])
+  end)
+
   it("keeps the selector open while moving between its windows", function()
     local search_win, list_win, details_win = open_selector()
 

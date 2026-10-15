@@ -48,6 +48,34 @@ function M.build_tree(databases)
   return root
 end
 
+-- Resolve a cached identifier only when it names exactly one current config.
+function M.find_database_by_id(databases, id)
+  if type(id) ~= "string" or id == "" then
+    return nil
+  end
+
+  local found
+  local matches = 0
+  local function check(db)
+    if (db.id or db.name) == id then
+      found = db
+      matches = matches + 1
+    end
+  end
+
+  for key, value in pairs(databases) do
+    if type(key) == "string" then
+      for _, db in ipairs(value) do
+        check(db)
+      end
+    else
+      check(value)
+    end
+  end
+
+  return matches == 1 and found or nil
+end
+
 -- Flatten tree to visible items
 function M.get_visible_items(root)
   local items = {}

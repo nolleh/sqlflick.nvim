@@ -63,19 +63,20 @@ Using [Lazy.nvim](https://github.com/folke/lazy.nvim):
 > When update the plugin and if there is some problem, recommend to run `SQLFlickInstall`
 
 ```lua
-{,
+{
     "nolleh/sqlflick.nvim",
     config = function()
         require("sqlflick").setup({
             databases = {
                 {
+                    id = "local-mysql",
                     name = "local_mysql",
                     type = "mysql",
                     host = "localhost",
                     port = 3306,
                     database = "mydb",
                     username = "user",
-                    password = "pass"
+                    password = vim.env.MY_DB_PASSWORD,
                 },
             },
         })
@@ -87,6 +88,16 @@ Using [Lazy.nvim](https://github.com/folke/lazy.nvim):
 }
 ```
 
+Set `MY_DB_PASSWORD` in Neovim's environment before loading the plugin. You can
+choose any environment variable name. Avoid putting a literal password in a
+tracked configuration file.
+
+After updating to the new cache format, run `:SQLFlickSelectDB` once before
+executing a query. The old cache contained complete connection settings and is
+discarded; the new cache stores only a version and the selected database ID.
+If the configured ID cannot be found or is duplicated, select a database again.
+Without an explicit `id`, the connection's `name` is used as its cache ID.
+
 ## Configuration
 
 [full-configuration](./lua/sqlflick/config.lua)  
@@ -97,13 +108,14 @@ Using [Lazy.nvim](https://github.com/folke/lazy.nvim):
     -- Database connections
     databases = {
         -- {
+        --     id = "local-mysql",
         --     name = "local_mysql",
         --     type = "mysql",
         --     host = "localhost",
         --     port = 3306,
         --     database = "mydb",
         --     username = "user",
-        --     password = "pass"
+        --     password = vim.env.MY_DB_PASSWORD,
         -- },
     },
 
