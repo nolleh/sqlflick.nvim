@@ -1,5 +1,5 @@
 ---@class Handler
----@field private process uv.uv_process_t?
+---@field private process uv.uv_process_t? | { pid: number, kill: fun(self: table, signal: number): boolean? }
 ---@field private port number
 local Handler = {}
 
@@ -62,6 +62,23 @@ local function check_existing_process()
   return true, tonumber(port), pid
 end
 
+local function track_existing_process(handler)
+  local is_running, port, pid = check_existing_process()
+  if is_running and pid and (not port or port == handler.port) then
+    -- A process found by pgrep was started outside this Handler, so it has no
+    -- uv process handle. Keep its PID in a compatible wrapper so stop/restart
+    -- can still signal it.
+    handler.process = {
+      pid = pid,
+      kill = function(_, signal)
+        return uv.kill(pid, signal)
+      end,
+    }
+    return true
+  end
+  return false
+end
+
 ---@param port number
 ---@return Handler
 function Handler:new(port)
@@ -76,8 +93,7 @@ end
 
 ---Start the backend process if not already running
 function Handler:ensure_running()
-  local is_running, _, _ = check_existing_process()
-  if is_running then
+  if track_existing_process(self) then
     return
   end
 
@@ -111,6 +127,9 @@ function Handler:stop()
   end
   for _, request in ipairs(pending) do
     request:cancel()
+  end
+  if not self.process then
+    track_existing_process(self)
   end
   if self.process then
     pcall(self.process.kill, self.process, 15)
