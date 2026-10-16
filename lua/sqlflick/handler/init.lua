@@ -42,29 +42,34 @@ end
 
 ---Check if backend process is already running
 ---@return boolean, number?, number? _ is running, port number if found, pid if found
-local function check_existing_process()
-  local pgrep = vim.fn.system("pgrep -f sqlflick-backend")
+local function check_existing_process(expected_port)
+  local pgrep = vim.fn.system({ "pgrep", "-f", "sqlflick-backend" })
   if vim.v.shell_error ~= 0 then
     return false
   end
-
-  -- Extract the first PID from the output (in case there are multiple)
-  local pid = pgrep:match("(%d+)")
-  if not pid then
-    return false
+  local expected_path = require("sqlflick.install").bin()
+  local expected_name = expected_path:match("([^/]+)$")
+  for candidate in pgrep:gmatch("%d+") do
+    local command = vim.fn.system({ "ps", "-p", candidate, "-o", "command=" }):gsub("^%s+", "")
+    if vim.v.shell_error == 0 then
+      -- A Make recipe shell can contain the binary path in an environment
+      -- assignment. Match argv[0], not an arbitrary substring in the command.
+      local executable = command:match("^(%S+)")
+      local exact_path = command:sub(1, #expected_path) == expected_path
+        and command:sub(#expected_path + 1, #expected_path + 1):match("%s")
+      local same_name = executable and executable:match("([^/]+)$") == expected_name
+      local port = tonumber(command:match("%-port%s+(%d+)"))
+      if (exact_path or same_name) and port == expected_port then
+        return true, port, tonumber(candidate)
+      end
+    end
   end
-  pid = tonumber(pid)
-
-  -- Check what port it's running on
-  local ps_out = vim.fn.system(string.format("ps -p %s -o command=", pid))
-  local port = ps_out:match("-port%s+(%d+)")
-
-  return true, tonumber(port), pid
+  return false
 end
 
 local function track_existing_process(handler)
-  local is_running, port, pid = check_existing_process()
-  if is_running and pid and (not port or port == handler.port) then
+  local is_running, port, pid = check_existing_process(handler.port)
+  if is_running and pid and port == handler.port then
     -- A process found by pgrep was started outside this Handler, so it has no
     -- uv process handle. Keep its PID in a compatible wrapper so stop/restart
     -- can still signal it.
