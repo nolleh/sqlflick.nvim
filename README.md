@@ -1,5 +1,9 @@
 # sqlflick.nvim
 
+<p align="center">
+  <img src="./docs/images/sqlflick-banner.jpg" alt="SQLFlick mascot holding an SQL document beside the sqlflick logo" width="800" />
+</p>
+
 A lightweight Neovim plugin for executing SQL queries with minimal setup. Designed for quick and efficient database interactions directly from your workspace.
 
 > **Note**: This plugin is actively maintained and developed based on real-world needs. Breaking changes may occur as features are continuously improved.
