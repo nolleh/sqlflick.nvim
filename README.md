@@ -35,7 +35,9 @@ https://github.com/user-attachments/assets/c86c8eac-786b-4e93-917e-4e4f34b01b56
 - **Query Execution**
 
   - Execute queries directly from your SQL buffer
-  - Support for both single-line and multi-line queries
+  - Execute the SQL statement at the cursor, including statements with internal blank lines
+  - Split at semicolons outside strings, quoted identifiers, and comments
+  - See [SQL statement selection](./docs/sql-statement-selection.md) for dialect rules and limits
 
     ![](./docs/images/run_query.png)
 
@@ -205,7 +207,7 @@ The following mappings are available for SQL-related file types (e.g., `.sql`, `
 | Command              | Mode | Key Binding  | Description                |
 | -------------------- | ---- | ------------ | -------------------------- |
 | `SQLFlickSelectDB`   | n    | `<leader>ss` | Select database connection |
-| `SQLFlickExecuteBuf` | n    | `<leader>sq` | Execute current line query |
+| `SQLFlickExecuteBuf` | n    | `<leader>sq` | Execute statement at cursor |
 | `SQLFlickExecute`    | v    | `<leader>sq` | Execute selected query     |
 
 In the database selector, type to filter connections, use `<C-n>` and `<C-p>`
