@@ -30,8 +30,14 @@ local result_context = nil
 
 local function render_result(query_text, result)
   local focus = vim.api.nvim_get_current_win()
-  if not (M.display_win and vim.api.nvim_win_is_valid(M.display_win)
-      and M.display_buf and vim.api.nvim_buf_is_valid(M.display_buf)) then
+  if
+    not (
+      M.display_win
+      and vim.api.nvim_win_is_valid(M.display_win)
+      and M.display_buf
+      and vim.api.nvim_buf_is_valid(M.display_buf)
+    )
+  then
     M.display_buf, M.display_win = display.create_display_window()
   end
   vim.api.nvim_set_option_value("modifiable", true, { buf = M.display_buf })
@@ -39,7 +45,9 @@ local function render_result(query_text, result)
   display.map_column_navigator(M.display_buf)
   display.display_results(M.display_buf, M.display_win, result.error ~= nil, query_text, lines)
   -- Results must not take focus away from edits made while a query was running.
-  if vim.api.nvim_win_is_valid(focus) then vim.api.nvim_set_current_win(focus) end
+  if vim.api.nvim_win_is_valid(focus) then
+    vim.api.nvim_set_current_win(focus)
+  end
 end
 
 function M.is_running()
@@ -48,15 +56,21 @@ end
 
 local function cancel_active(quiet)
   local execution = active_execution
-  if not execution then return end
+  if not execution then
+    return
+  end
   active_execution = nil -- Invalidate callbacks before signalling the process.
-  if execution.request then execution.request:cancel() end
+  if execution.request then
+    execution.request:cancel()
+  end
   if execution.refresh and result_context then
     pagination.state.current_page = result_context.page
   else
     pagination.reset()
   end
-  if not quiet then vim.notify("Query cancelled", vim.log.levels.INFO) end
+  if not quiet then
+    vim.notify("Query cancelled", vim.log.levels.INFO)
+  end
 end
 
 function M.cancel()
@@ -67,12 +81,16 @@ local function begin_execution(query_text, db, backend, refresh)
   local target_page = refresh and pagination.state.current_page
   local target_offset = refresh and pagination.get_offset()
   cancel_active(true)
-  if target_page then pagination.state.current_page = target_page end
+  if target_page then
+    pagination.state.current_page = target_page
+  end
   local execution = { query_text = query_text, database = db, refresh = refresh }
   active_execution = execution
   vim.notify("Executing query… :SQLFlickCancel to cancel", vim.log.levels.INFO)
   local function finish(result)
-    if active_execution ~= execution then return end
+    if active_execution ~= execution then
+      return
+    end
     active_execution = nil
     execution.request = nil
     if result.error then
@@ -82,24 +100,30 @@ local function begin_execution(query_text, db, backend, refresh)
         pagination.reset()
       end
     else
-      result_context = { database = db, backend = backend, query_text = query_text,
-        page = pagination.state.current_page }
+      result_context =
+        { database = db, backend = backend, query_text = query_text, page = pagination.state.current_page }
     end
     render_result(query_text, result)
+    vim.notify(
+      result.error and "Query failed" or "Query complete",
+      result.error and vim.log.levels.ERROR or vim.log.levels.INFO
+    )
   end
   local function run_query()
     execution.request = M.execute(query_text, db, backend, finish)
   end
   if refresh then
-    execution.request = M.execute_with_pagination(query_text, db, backend,
-      pagination.get_page_size(), target_offset, finish)
+    execution.request =
+      M.execute_with_pagination(query_text, db, backend, pagination.get_page_size(), target_offset, finish)
   elseif not pagination.can_paginate(query_text, db) then
     pagination.reset()
     run_query()
   else
     pagination.reset()
     execution.request = M.execute_count(query_text, db, backend, function(count_result)
-      if active_execution ~= execution then return end
+      if active_execution ~= execution then
+        return
+      end
       execution.request = nil
       if count_result.error then
         -- Only a SQL count failure may fall back. A failed/cancelled transport
@@ -111,8 +135,7 @@ local function begin_execution(query_text, db, backend, refresh)
         end
       elseif count_result.count > pagination.get_page_size() then
         pagination.init(query_text, db, backend, count_result.count)
-        execution.request = M.execute_with_pagination(query_text, db, backend,
-          pagination.get_page_size(), 0, finish)
+        execution.request = M.execute_with_pagination(query_text, db, backend, pagination.get_page_size(), 0, finish)
       else
         run_query()
       end
@@ -355,6 +378,7 @@ end
 -- Setup function that will be called by users
 function M.setup(opts)
   config.setup(opts)
+  pagination.set_page_size(config.opts.pagination.page_size)
   M.selected_database = tree.find_database_by_id(config.opts.databases, cache.load_selected_id())
 
   -- Check and install dependencies
@@ -608,7 +632,9 @@ end
 
 ---Refresh current page (reload current page data)
 function M.refresh_current_page()
-  if not pagination.is_enabled() or not result_context then return end
+  if not pagination.is_enabled() or not result_context then
+    return
+  end
   local context = result_context
   begin_execution(context.query_text, context.database, context.backend, true)
 end

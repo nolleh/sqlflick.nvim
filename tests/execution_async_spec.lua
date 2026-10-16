@@ -1,14 +1,22 @@
--- Exercise command orchestration while holding transport completions pending.
--- There are no database connections, subprocesses, or timing sleeps here.
+-- Exercise real Neovim commands, buffers, windows, and autocmds while holding
+-- transport completions pending. No database connection or subprocess is needed.
 describe("Asynchronous execution commands", function()
-  local saved_modules, saved_api, saved_notify
-  local sqlflick, commands, pending, rendered, autocmds, notifications, focus
+  local saved_modules, saved_notify, initial_win, test_buf, autocmds_before
+  local sqlflick, pending, rendered, notifications
   local db = { id = "test", name = "test", type = "postgresql", database = "test" }
   local backend = { host = "127.0.0.1", port = 9081, timeout_ms = 500 }
   local module_names = {
-    "sqlflick", "sqlflick.config", "sqlflick.cache", "sqlflick.install",
-    "sqlflick.completion", "sqlflick.highlights", "sqlflick.deps",
-    "sqlflick.display", "sqlflick.query", "sqlflick.handler", "sqlflick.pagination",
+    "sqlflick",
+    "sqlflick.config",
+    "sqlflick.cache",
+    "sqlflick.install",
+    "sqlflick.completion",
+    "sqlflick.highlights",
+    "sqlflick.deps",
+    "sqlflick.display",
+    "sqlflick.query",
+    "sqlflick.handler",
+    "sqlflick.pagination",
   }
 
   local function noop() end
@@ -18,36 +26,54 @@ describe("Asynchronous execution commands", function()
     for _, name in ipairs(module_names) do
       saved_modules[name] = package.loaded[name]
     end
-    commands, pending, rendered, autocmds, notifications = {}, {}, {}, {}, {}
-    focus = 50
-    saved_api, saved_notify = vim.api, vim.notify
-    vim.api = setmetatable({
-      nvim_create_user_command = function(name, callback) commands[name] = callback end,
-      nvim_create_autocmd = function(event, opts) autocmds[event] = opts.callback end,
-      nvim_win_is_valid = function() return true end,
-      nvim_get_current_win = function() return focus end,
-      nvim_buf_is_valid = function() return true end,
-      nvim_set_current_win = function(win) focus = win end,
-      nvim_set_option_value = noop,
-      nvim_buf_set_lines = noop,
-      nvim_get_mode = function() return { mode = "n" } end,
-      nvim_win_get_cursor = function() return { 1, 0 } end,
-      nvim_buf_get_lines = function() return { "SELECT 1;" } end,
-    }, { __index = saved_api })
-    vim.notify = function(message) table.insert(notifications, message) end
+    pending, rendered, notifications = {}, {}, {}
+    saved_notify = vim.notify
+    initial_win = vim.api.nvim_get_current_win()
+    autocmds_before = {}
+    for _, autocmd in ipairs(vim.api.nvim_get_autocmds({ event = { "VimLeavePre", "FileType" } })) do
+      if autocmd.id then
+        autocmds_before[autocmd.id] = true
+      end
+    end
+    test_buf = vim.api.nvim_create_buf(false, true)
+    vim.api.nvim_win_set_buf(initial_win, test_buf)
+    vim.api.nvim_buf_set_lines(test_buf, 0, -1, false, { "SELECT 1;" })
+    vim.notify = function(message)
+      table.insert(notifications, message)
+    end
 
     package.loaded["sqlflick"] = nil
     package.loaded["sqlflick.config"] = {
-      opts = { databases = { db }, backend = backend, completion = { enabled = false } },
+      opts = {
+        databases = { db },
+        backend = backend,
+        completion = { enabled = false },
+        pagination = { page_size = 20 },
+      },
       setup = noop,
     }
-    package.loaded["sqlflick.cache"] = { load_selected_id = function() return "test" end }
+    package.loaded["sqlflick.cache"] = {
+      load_selected_id = function()
+        return "test"
+      end,
+    }
     package.loaded["sqlflick.install"] = { ensure_installed = noop }
     package.loaded["sqlflick.completion"] = { setup = noop }
     package.loaded["sqlflick.highlights"] = { setup = noop }
     package.loaded["sqlflick.deps"] = {}
     package.loaded["sqlflick.display"] = {
-      create_display_window = function() focus = 102; return 101, 102 end,
+      create_display_window = function()
+        local buf = vim.api.nvim_create_buf(false, true)
+        local win = vim.api.nvim_open_win(buf, true, {
+          relative = "editor",
+          row = 1,
+          col = 1,
+          width = 20,
+          height = 3,
+          style = "minimal",
+        })
+        return buf, win
+      end,
       map_column_navigator = noop,
       display_results = function(_, _, is_error, query, lines)
         table.insert(rendered, { is_error = is_error, query = query, result = lines })
@@ -55,19 +81,30 @@ describe("Asynchronous execution commands", function()
     }
     package.loaded["sqlflick.query"] = {
       setup = noop,
-      format_query_results = function(result) return result end,
+      format_query_results = function(result)
+        return result
+      end,
     }
     local pagination = {
       state = {},
-      can_paginate = function(query) return query:match("^SELECT") ~= nil end,
-      get_page_size = function() return 20 end,
-      is_enabled = function() return true end,
+      can_paginate = function(query)
+        return query:match("^SELECT") ~= nil
+      end,
+      get_page_size = function()
+        return 20
+      end,
+      set_page_size = noop,
+      is_enabled = function()
+        return true
+      end,
       reset = noop,
     }
     pagination.init = function(query, database)
       pagination.state = { query_text = query, database = database, current_page = 1 }
     end
-    pagination.get_offset = function() return (pagination.state.current_page - 1) * 20 end
+    pagination.get_offset = function()
+      return (pagination.state.current_page - 1) * 20
+    end
     package.loaded["sqlflick.pagination"] = pagination
 
     local transport = {}
@@ -77,28 +114,65 @@ describe("Asynchronous execution commands", function()
         local callback = args[#args]
         assert.equals("function", type(callback), "command must use callback execution")
         local request = { method = method, query = query, database = database, config = config, cancels = 0 }
-        if method == "execute_query_with_pagination" then request.offset = args[2] end
-        function request:cancel() self.cancels = self.cancels + 1 end
-        function request:complete(result) callback(result) end
+        if method == "execute_query_with_pagination" then
+          request.offset = args[2]
+        end
+        function request:cancel()
+          self.cancels = self.cancels + 1
+        end
+        function request:complete(result)
+          callback(result)
+        end
         table.insert(pending, request)
         return request
       end
     end
     transport.stop = noop
-    package.loaded["sqlflick.handler"] = { new = function() return transport end }
+    package.loaded["sqlflick.handler"] = {
+      new = function()
+        return transport
+      end,
+    }
     sqlflick = require("sqlflick")
     sqlflick.setup({ databases = { db } })
   end)
 
   after_each(function()
-    vim.api, vim.notify = saved_api, saved_notify
+    sqlflick.cancel()
+    if sqlflick.display_win and vim.api.nvim_win_is_valid(sqlflick.display_win) then
+      vim.api.nvim_win_close(sqlflick.display_win, true)
+    end
+    for _, autocmd in ipairs(vim.api.nvim_get_autocmds({ event = { "VimLeavePre", "FileType" } })) do
+      if autocmd.id and not autocmds_before[autocmd.id] then
+        vim.api.nvim_del_autocmd(autocmd.id)
+      end
+    end
+    for _, name in ipairs({
+      "SQLFlickDebug",
+      "SQLFlickSelectDB",
+      "SQLFlickInstall",
+      "SQLFlickRestart",
+      "SQLFlickRefreshSchema",
+      "SQLFlickCancel",
+      "SQLFlickExecute",
+      "SQLFlickExecuteBuf",
+    }) do
+      vim.api.nvim_del_user_command(name)
+    end
+    if vim.api.nvim_win_is_valid(initial_win) then
+      vim.api.nvim_set_current_win(initial_win)
+    end
+    if vim.api.nvim_buf_is_valid(test_buf) then
+      vim.api.nvim_buf_delete(test_buf, { force = true })
+    end
+    vim.notify = saved_notify
     for _, name in ipairs(module_names) do
       package.loaded[name] = saved_modules[name]
     end
   end)
 
   local function run(query)
-    commands.SQLFlickExecute({ args = query or "SELECT 1;" })
+    vim.api.nvim_cmd({ cmd = "SQLFlickExecute", args = { query or "SELECT 1;" } }, {})
   end
 
   it("returns from the query command while COUNT is still pending", function()
@@ -111,6 +185,7 @@ describe("Asynchronous execution commands", function()
 
   it("starts the first page only after COUNT completes and renders only completed results", function()
     run()
+    assert.equals("Executing query… :SQLFlickCancel to cancel", notifications[#notifications])
     pending[1]:complete({ count = 21 })
     assert.equals(2, #pending)
     assert.equals("execute_query_with_pagination", pending[2].method)
@@ -119,6 +194,7 @@ describe("Asynchronous execution commands", function()
     assert.equals(1, #rendered)
     assert.equals(1, rendered[1].result.rows[1][1])
     assert.is_false(sqlflick.is_running())
+    assert.equals("Query complete", notifications[#notifications])
   end)
 
   it("runs write statements asynchronously without COUNT", function()
@@ -131,25 +207,27 @@ describe("Asynchronous execution commands", function()
   end)
 
   it("supports the buffer execution command without waiting for a result", function()
-    commands.SQLFlickExecuteBuf({})
+    vim.cmd("SQLFlickExecuteBuf")
     assert.equals(1, #pending)
+    assert.equals("SELECT 1;", pending[1].query)
     assert.equals(0, #rendered)
   end)
 
   it("cancels a pending COUNT and ignores its late successful completion", function()
     run()
-    assert.equals("function", type(commands.SQLFlickCancel))
-    commands.SQLFlickCancel({})
+    assert.is_truthy(vim.api.nvim_get_commands({}).SQLFlickCancel)
+    vim.cmd("SQLFlickCancel")
     assert.equals(1, pending[1].cancels)
     pending[1]:complete({ count = 21 })
     assert.equals(1, #pending)
     assert.equals(0, #rendered)
+    assert.equals("Query cancelled", notifications[#notifications])
   end)
 
   it("cancels the page request after COUNT has already completed", function()
     run()
     pending[1]:complete({ count = 21 })
-    commands.SQLFlickCancel({})
+    vim.cmd("SQLFlickCancel")
     assert.equals(0, pending[1].cancels)
     assert.equals(1, pending[2].cancels)
     pending[2]:complete({ columns = { "id" }, rows = { { 1 } } })
@@ -160,6 +238,10 @@ describe("Asynchronous execution commands", function()
     run()
     pending[1]:complete({ error = "query timed out", error_code = "timeout" })
     assert.equals(1, #pending)
+    assert.equals(1, #rendered)
+    assert.is_true(rendered[1].is_error)
+    assert.is_false(sqlflick.is_running())
+    assert.equals("Query failed", notifications[#notifications])
   end)
 
   it("a new execution supersedes the old one and ignores old results", function()
@@ -170,11 +252,12 @@ describe("Asynchronous execution commands", function()
     pending[1]:complete({ columns = { "value" }, rows = { { "old" } } })
     assert.equals(1, #rendered)
     assert.equals("new", rendered[1].result.rows[1][1])
+    assert.equals("Query complete", notifications[#notifications])
   end)
 
   it("can cancel while idle without starting work", function()
-    assert.equals("function", type(commands.SQLFlickCancel))
-    commands.SQLFlickCancel({})
+    assert.is_truthy(vim.api.nvim_get_commands({}).SQLFlickCancel)
+    vim.cmd("SQLFlickCancel")
     assert.equals(0, #pending)
   end)
 
@@ -202,15 +285,18 @@ describe("Asynchronous execution commands", function()
 
   it("cancels the pending request when Neovim exits", function()
     run("UPDATE users SET active = 1;")
-    autocmds.VimLeavePre()
+    vim.api.nvim_exec_autocmds("VimLeavePre", {})
     assert.equals(1, pending[1].cancels)
   end)
 
   it("preserves the user's current focus when an asynchronous result arrives", function()
     run("UPDATE users SET active = 1;")
-    focus = 77 -- The user changed windows while the query was pending.
+    vim.cmd("vsplit")
+    local focus = vim.api.nvim_get_current_win()
     pending[1]:complete({ columns = {}, rows = {} })
-    assert.equals(77, focus)
+    assert.not_equals(focus, sqlflick.display_win)
+    assert.equals(focus, vim.api.nvim_get_current_win())
+    vim.cmd("close")
   end)
 
   it("keeps the newly requested page when superseding an in-flight page refresh", function()

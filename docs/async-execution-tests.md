@@ -42,18 +42,31 @@ remain request-local so state cannot leak between requests.
 
 ## Tests
 
-| File | Cases | Focus |
-| --- | ---: | --- |
-| `tests/handler_async_spec.lua` | 28 | Async transport, startup, cancellation, timeout, errors, quote preservation |
-| `tests/execution_async_spec.lua` | 14 | Command/COUNT/page sequencing, stale callbacks, DB selection, focus, shutdown |
-| `backend/execution_context_test.go` | 11 | Request context, deadlines, cancellation, cleanup, success |
-| `backend/pools_test.go` | 7 | Pool reuse, caps, concurrency, expiry, identity, SQLite cancellation/reuse |
+| File                                | Cases | Focus                                                                                             |
+| ----------------------------------- | ----: | ------------------------------------------------------------------------------------------------- |
+| `tests/handler_async_spec.lua`      |    29 | Async transport, startup, cancellation, timeout, fast event callbacks, errors, quote preservation |
+| `tests/execution_async_spec.lua`    |    14 | Command/COUNT/page sequencing, stale callbacks, DB selection, focus, shutdown                     |
+| `backend/execution_context_test.go` |    11 | Request context, deadlines, cancellation, cleanup, success                                        |
+| `backend/pools_test.go`             |     7 | Pool reuse, caps, concurrency, expiry, identity, SQLite cancellation/reuse                        |
+| `e2e/postgres_spec.lua`             |     3 | Real backend/PostgreSQL query display, COUNT and page refresh, cancel and rerun                   |
 
-In the authoring environment, all 42 new Lua tests and the existing 18
-quote-preservation tests pass under Lua 5.4 with Neovim API substitutes.
-This does not verify native Neovim scheduling, Go compilation, or live DB behavior.
-The native suites could not run: Neovim and the Go language toolchain are absent,
-and downloading Plenary through the environment's network proxy fails.
+The 43 async Lua tests now run through Plenary in headless Neovim. The command
+tests exercise real Neovim user commands, buffers, windows, and autocmds while
+holding transport completions pending. The handler tests use Neovim's event
+loop for scheduled callbacks and stub only process execution and delayed
+readiness retries. All 43 async tests and the existing 18 quote-preservation
+tests passed with Neovim 0.12.5. The backend suite also passed with Go's race
+detector (68 tests). These tests do not establish live database cancellation
+behavior or compatibility with every supported Neovim version.
+
+Run the PostgreSQL end-to-end suite against the healthy `postgres` service from
+`tests/docker/docker-compose.yml` with `make test-e2e`. It builds a temporary
+backend in `.deps/`, starts it on a local port, and runs headless Neovim with
+the real curl transport and result UI. The suite uses read-only SQL and stops
+the backend afterward. Override the connection with `SQLFLICK_E2E_PG_HOST`,
+`SQLFLICK_E2E_PG_PORT`, `SQLFLICK_E2E_PG_DATABASE`, `SQLFLICK_E2E_PG_USER`, and
+`SQLFLICK_E2E_PG_PASSWORD` if needed. The default connection matches the Docker
+Compose PostgreSQL service. The 3 end-to-end cases passed against that service.
 
 ## Before merging
 
@@ -61,8 +74,8 @@ With the native tools and dependencies installed:
 
 ```sh
 make test
+make test-e2e
 cd backend
-gofmt -w main.go drivers.go pools.go *_test.go
 go test -race -count=1 -timeout=60s ./...
 ```
 

@@ -106,8 +106,12 @@ end
 ---Stop the backend process if running
 function Handler:stop()
   local pending = {}
-  for request in pairs(self.requests or {}) do table.insert(pending, request) end
-  for _, request in ipairs(pending) do request:cancel() end
+  for request in pairs(self.requests or {}) do
+    table.insert(pending, request)
+  end
+  for _, request in ipairs(pending) do
+    request:cancel()
+  end
   if self.process then
     pcall(self.process.kill, self.process, 15)
     self.process = nil
@@ -138,52 +142,84 @@ function Handler:request_async(endpoint, query, db_config, backend_config, limit
     limit = limit,
     offset = offset,
     config = {
-      host = db_config.host, port = db_config.port, user = db_config.username,
-      password = db_config.password, dbname = db_config.database,
+      host = db_config.host,
+      port = db_config.port,
+      user = db_config.username,
+      password = db_config.password,
+      dbname = db_config.database,
     },
   }
   local request = { done = false, job = nil }
   self.requests = self.requests or {}
   self.requests[request] = true
   local function finish(result)
-    if request.done then return end
+    if request.done then
+      return
+    end
     request.done = true
     self.requests[request] = nil
-    vim.schedule(function() callback(result) end)
+    vim.schedule(function()
+      callback(result)
+    end)
   end
   function request:cancel()
-    if self.done then return end
+    if self.done then
+      return
+    end
     local job = self.job
     finish(request_error("cancelled", "Query cancelled"))
-    if job then pcall(job.kill, job, 15) end
+    if job then
+      pcall(job.kill, job, 15)
+    end
   end
   local base_url = string.format("http://%s:%d", backend_config.host, backend_config.port)
   local function send()
-    if request.done then return end
+    if request.done then
+      return
+    end
     local ok, job = pcall(vim.system, {
-      "curl", "--silent", "--show-error", "--request", "POST",
-      "--header", "Content-Type: application/json", "--data-binary", "@-",
+      "curl",
+      "--silent",
+      "--show-error",
+      "--request",
+      "POST",
+      "--header",
+      "Content-Type: application/json",
+      "--data-binary",
+      "@-",
       base_url .. endpoint,
     }, { text = true, stdin = vim.fn.json_encode(data), timeout = timeout }, function(response)
-      if request.done then return end
-      if response.code == 124 then
-        finish(request_error("timeout", "Query timed out"))
-      elseif response.code ~= 0 then
-        self.ready = false
-        finish(request_error("transport", response.stderr ~= "" and response.stderr or "Failed to connect to backend"))
-      else
-        local decoded, result = pcall(vim.fn.json_decode, response.stdout)
-        if not decoded or type(result) ~= "table"
-          or (result.error ~= nil and type(result.error) ~= "string")
-          or (endpoint == "/count" and not result.error and type(result.count) ~= "number") then
-          finish(request_error("invalid_response", "Backend returned an invalid response"))
-        else
-          finish(result)
+      vim.schedule(function()
+        if request.done then
+          return
         end
-      end
+        if response.code == 124 then
+          finish(request_error("timeout", "Query timed out"))
+        elseif response.code ~= 0 then
+          self.ready = false
+          finish(
+            request_error("transport", response.stderr ~= "" and response.stderr or "Failed to connect to backend")
+          )
+        else
+          local decoded, result = pcall(vim.fn.json_decode, response.stdout)
+          if
+            not decoded
+            or type(result) ~= "table"
+            or (result.error ~= nil and type(result.error) ~= "string")
+            or (endpoint == "/count" and not result.error and type(result.count) ~= "number")
+          then
+            finish(request_error("invalid_response", "Backend returned an invalid response"))
+          else
+            finish(result)
+          end
+        end
+      end)
     end)
-    if ok then request.job = job
-    else finish(request_error("transport", tostring(job))) end
+    if ok then
+      request.job = job
+    else
+      finish(request_error("transport", tostring(job)))
+    end
   end
 
   -- Probe readiness asynchronously before sending SQL. Only GET probes retry:
@@ -193,13 +229,20 @@ function Handler:request_async(endpoint, query, db_config, backend_config, limit
   else
     local attempts = 0
     local function probe()
-      if request.done then return end
+      if request.done then
+        return
+      end
       attempts = attempts + 1
       local ok, job = pcall(vim.system, {
-        "curl", "--silent", "--show-error", base_url .. "/health",
+        "curl",
+        "--silent",
+        "--show-error",
+        base_url .. "/health",
       }, { text = true, timeout = 250 }, function(response)
         vim.schedule(function()
-          if request.done then return end
+          if request.done then
+            return
+          end
           local decoded, health = pcall(vim.fn.json_decode, response.stdout)
           if response.code == 0 and decoded and type(health) == "table" and health.protocol == 1 then
             self.ready, self.starting = true, false
@@ -207,7 +250,9 @@ function Handler:request_async(endpoint, query, db_config, backend_config, limit
             return
           end
           if response.code == 0 then
-            finish(request_error("transport", "Backend version is incompatible. Run :SQLFlickInstall, then :SQLFlickRestart"))
+            finish(
+              request_error("transport", "Backend version is incompatible. Run :SQLFlickInstall, then :SQLFlickRestart")
+            )
             return
           end
           if not self.process then
@@ -219,10 +264,15 @@ function Handler:request_async(endpoint, query, db_config, backend_config, limit
             self.starting = true
             local handle
             handle = uv.spawn(backend_path, {
-              args = { "-port", tostring(self.port) }, stdio = { nil, nil, nil },
+              args = { "-port", tostring(self.port) },
+              stdio = { nil, nil, nil },
             }, function()
-              if self.process == handle then self.process, self.ready, self.starting = nil, false, false end
-              if handle and not handle:is_closing() then handle:close() end
+              if self.process == handle then
+                self.process, self.ready, self.starting = nil, false, false
+              end
+              if handle and not handle:is_closing() then
+                handle:close()
+              end
             end)
             if not handle then
               finish(request_error("transport", "Failed to start backend process"))
@@ -237,8 +287,11 @@ function Handler:request_async(endpoint, query, db_config, backend_config, limit
           end
         end)
       end)
-      if ok then request.job = job
-      else finish(request_error("transport", tostring(job))) end
+      if ok then
+        request.job = job
+      else
+        finish(request_error("transport", tostring(job)))
+      end
     end
     probe()
   end
@@ -251,7 +304,9 @@ end
 ---@param backend_config table
 ---@return table result
 function Handler:execute_query(query, db_config, backend_config, callback)
-  if type(callback) == "function" then return self:request_async("/query", query, db_config, backend_config, nil, nil, callback) end
+  if type(callback) == "function" then
+    return self:request_async("/query", query, db_config, backend_config, nil, nil, callback)
+  end
   if not self.process then
     self:ensure_running()
   end
@@ -304,7 +359,9 @@ end
 ---@param backend_config table
 ---@return { count?: number, error?: string }
 function Handler:execute_count(query, db_config, backend_config, callback)
-  if type(callback) == "function" then return self:request_async("/count", query, db_config, backend_config, nil, nil, callback) end
+  if type(callback) == "function" then
+    return self:request_async("/count", query, db_config, backend_config, nil, nil, callback)
+  end
   if not self.process then
     self:ensure_running()
   end
@@ -355,7 +412,9 @@ end
 ---@param offset number|nil
 ---@return table result
 function Handler:execute_query_with_pagination(query, db_config, backend_config, limit, offset, callback)
-  if type(callback) == "function" then return self:request_async("/query", query, db_config, backend_config, limit, offset, callback) end
+  if type(callback) == "function" then
+    return self:request_async("/query", query, db_config, backend_config, limit, offset, callback)
+  end
   if not self.process then
     self:ensure_running()
   end

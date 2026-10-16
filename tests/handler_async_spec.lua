@@ -18,12 +18,17 @@ local methods = {
 }
 
 describe("Asynchronous query requests", function()
-  local saved, jobs, scheduled, handler, results, spawned
+  local saved, jobs, deferred, queued_callbacks, handler, results, spawned
 
   local function flush()
-    while #scheduled > 0 do
-      table.remove(scheduled, 1)()
-    end
+    repeat
+      while #deferred > 0 do
+        table.remove(deferred, 1)()
+      end
+      assert.is_true(vim.wait(1000, function()
+        return queued_callbacks == 0
+      end))
+    until #deferred == 0
   end
 
   local function start(method)
@@ -52,16 +57,35 @@ describe("Asynchronous query requests", function()
     package.loaded[module_name] = nil
     package.loaded.http = nil
     package.preload.http = function()
-      return { request = function() error("blocking HTTP used by async execution") end }
+      return {
+        request = function()
+          error("blocking HTTP used by async execution")
+        end,
+      }
     end
-    jobs, scheduled, results, spawned = {}, {}, {}, {}
-    vim.fn.system = function() error("blocking vim.fn.system used by async execution") end
+    jobs, deferred, results, spawned = {}, {}, {}, {}
+    queued_callbacks = 0
+    vim.fn.system = function()
+      error("blocking vim.fn.system used by async execution")
+    end
     vim.schedule = function(callback)
-      table.insert(scheduled, callback)
+      queued_callbacks = queued_callbacks + 1
+      saved.schedule(function()
+        queued_callbacks = queued_callbacks - 1
+        callback()
+      end)
     end
-    vim.defer_fn = function(callback) table.insert(scheduled, callback) end
-    vim.fn.filereadable = function() return 1 end
-    package.loaded["sqlflick.install"] = { bin = function() return "/test/sqlflick-backend" end }
+    vim.defer_fn = function(callback)
+      table.insert(deferred, callback)
+    end
+    vim.fn.filereadable = function()
+      return 1
+    end
+    package.loaded["sqlflick.install"] = {
+      bin = function()
+        return "/test/sqlflick-backend"
+      end,
+    }
     vim.loop.spawn = function(path, opts)
       table.insert(spawned, { path = path, opts = opts })
       return { kill = function() end }
@@ -198,8 +222,23 @@ describe("Asynchronous query requests", function()
     assert.is_nil(results[2].error)
   end)
 
+  it("decodes a process completion from a fast event callback", function()
+    start(methods[1])
+    local timer = vim.loop.new_timer()
+    timer:start(0, 0, function()
+      timer:close()
+      jobs[1].on_exit({ code = 0, stdout = methods[1].response, stderr = "" })
+    end)
+    assert.is_true(vim.wait(1000, function()
+      return #results == 1
+    end))
+    assert.same(vim.fn.json_decode(methods[1].response), results[1])
+  end)
+
   it("reports process startup failure without throwing from the caller", function()
-    vim.system = function() error("curl executable not found") end
+    vim.system = function()
+      error("curl executable not found")
+    end
     start(methods[1])
     assert.equals(0, #results)
     flush()
