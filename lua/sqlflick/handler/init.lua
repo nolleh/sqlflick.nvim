@@ -147,8 +147,8 @@ local function request_error(code, message)
   return { error_code = code, error = message }
 end
 
--- A callback opts into async execution. Legacy synchronous callers (including
--- omni-completion) retain their existing API.
+-- A callback opts into async execution. Legacy synchronous query callers
+-- retain their existing API.
 function Handler:request_async(endpoint, query, db_config, backend_config, limit, offset, callback)
   local timeout = backend_config.timeout_ms or 30000
   if type(timeout) ~= "number" or timeout < 1 or timeout > 3600000 or timeout % 1 ~= 0 then
@@ -213,7 +213,7 @@ function Handler:request_async(endpoint, query, db_config, backend_config, limit
           return
         end
         if response.code == 124 then
-          finish(request_error("timeout", "Query timed out"))
+          finish(request_error("timeout", endpoint == "/schema" and "Schema request timed out" or "Query timed out"))
         elseif response.code ~= 0 then
           self.ready = false
           finish(
@@ -489,9 +489,13 @@ end
 ---Fetch relational schema metadata through the backend.
 ---@param db_config table
 ---@param backend_config table
----@return table|nil schema
+---@param callback fun(result: table)|nil
+---@return table|nil schema_or_request
 ---@return string|nil error
-function Handler:fetch_schema(db_config, backend_config)
+function Handler:fetch_schema(db_config, backend_config, callback)
+  if type(callback) == "function" then
+    return self:request_async("/schema", nil, db_config, backend_config, nil, nil, callback)
+  end
   if not self.process then
     self:ensure_running()
   end

@@ -399,8 +399,8 @@ function M.setup(opts)
     get_database = function()
       return M.selected_database
     end,
-    fetch_schema = function(database)
-      return M.fetch_schema(database, config.opts.backend)
+    fetch_schema = function(database, callback)
+      return M.fetch_schema(database, config.opts.backend, callback)
     end,
   })
 
@@ -495,12 +495,13 @@ function M.setup(opts)
   end, {})
 
   vim.api.nvim_create_user_command("SQLFlickRefreshSchema", function()
-    local schema, err = completion.refresh()
-    if not schema then
-      vim.notify("Failed to refresh SQL schema: " .. err, vim.log.levels.ERROR)
-      return
-    end
-    vim.notify(string.format("SQL schema refreshed (%d tables/views)", #schema.tables), vim.log.levels.INFO)
+    completion.refresh(function(schema, err)
+      if not schema then
+        vim.notify("Failed to refresh SQL schema: " .. err, vim.log.levels.ERROR)
+        return
+      end
+      vim.notify(string.format("SQL schema refreshed (%d tables/views)", #schema.tables), vim.log.levels.INFO)
+    end)
   end, {})
 
   vim.api.nvim_create_user_command("SQLFlickCancel", function()
@@ -621,13 +622,14 @@ end
 ---Fetch schema metadata for completion.
 ---@param database table
 ---@param backend_config table
----@return table|nil schema
+---@param callback fun(result: table)|nil
+---@return table|nil schema_or_request
 ---@return string|nil error
-function M.fetch_schema(database, backend_config)
+function M.fetch_schema(database, backend_config, callback)
   if not handler then
     handler = require("sqlflick.handler"):new(config.opts.backend.port)
   end
-  return handler:fetch_schema(database, backend_config)
+  return handler:fetch_schema(database, backend_config, callback)
 end
 
 ---Refresh current page (reload current page data)

@@ -15,6 +15,7 @@ local methods = {
   { name = "execute_query", endpoint = "/query", response = '{"columns":["name"],"rows":[["Alice"]]}' },
   { name = "execute_count", endpoint = "/count", response = '{"count":21}' },
   { name = "execute_query_with_pagination", endpoint = "/query", response = '{"columns":["name"],"rows":[["Alice"]]}' },
+  { name = "fetch_schema", endpoint = "/schema", response = '{"tables":[]}' },
 }
 
 describe("Asynchronous query requests", function()
@@ -37,6 +38,9 @@ describe("Asynchronous query requests", function()
     end
     if method.name == "execute_query_with_pagination" then
       return handler[method.name](handler, sql, db, backend, 20, 40, callback)
+    end
+    if method.name == "fetch_schema" then
+      return handler[method.name](handler, db, backend, callback)
     end
     return handler[method.name](handler, sql, db, backend, callback)
   end
@@ -129,7 +133,11 @@ describe("Asynchronous query requests", function()
         assert.equals("table", type(jobs[1].command))
         assert.matches(method.endpoint, jobs[1].command[#jobs[1].command], 1, true)
         local body = vim.fn.json_decode(jobs[1].opts.stdin)
-        assert.equals(sql, body.query)
+        if method.name == "fetch_schema" then
+          assert.is_nil(body.query)
+        else
+          assert.equals(sql, body.query)
+        end
         assert.equals(db.password, body.config.password)
         assert.equals(backend.timeout_ms, body.timeout_ms)
         assert.equals(backend.timeout_ms, jobs[1].opts.timeout)
