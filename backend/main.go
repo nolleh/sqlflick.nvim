@@ -2,42 +2,29 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
 	"os"
 	"strconv"
+	"time"
 )
 
-const VERSION = "0.6.5"
+const VERSION = "0.7.0"
 
 // QueryRequest represents an incoming SQL query request
 type QueryRequest struct {
-	Database string `json:"database"`
-	Query    string `json:"query"`
-	Config   Config `json:"config"`
-	Limit    *int   `json:"limit,omitempty"`  // Optional limit for pagination
-	Offset   *int   `json:"offset,omitempty"` // Optional offset for pagination
+	TimeoutMS int `json:"timeout_ms,omitempty"`
+	Database  string `json:"database"`
+	Query     string `json:"query"`
+	Config    Config `json:"config"`
+	Limit     *int   `json:"limit,omitempty"`  // Optional limit for pagination
+	Offset    *int   `json:"offset,omitempty"` // Optional offset for pagination
 }
-
-// UnmarshalJSON implements custom JSON unmarshaling for QueryRequest
-// func (q *QueryRequest) UnmarshalJSON(data []byte) error {
-// 	type Alias QueryRequest
-// 	aux := &struct {
-// 		*Alias
-// 		Query string `json:"query"`
-// 	}{
-// 		Alias: (*Alias)(q),
-// 	}
-// 	if err := json.Unmarshal(data, &aux); err != nil {
-// 		return err
-// 	}
-// 	// Preserve the original query string with quotes
-// 	q.Query = aux.Query
-// 	return nil
-// }
 
 // QueryResult represents the result of a SQL query
 type QueryResult struct {
@@ -60,15 +47,65 @@ type SchemaRequest struct {
 
 // ErrorResponse represents a JSON error response
 type ErrorResponse struct {
-	Error string `json:"error"`
+	ErrorCode string `json:"error_code,omitempty"`
+	Error     string `json:"error"`
 }
 
-var drivers = map[string]DatabaseDriver{
-	"postgresql": &PostgresDriver{},
-	"mysql":      &MySQLDriver{},
-	"sqlite":     &SQLiteDriver{},
-	"redis":      &RedisDriver{},
-	"oracle":     &OracleDriver{},
+// Each request owns a driver wrapper; wrappers lease shared, bounded connection pools.
+var drivers = map[string]func() DatabaseDriver{
+	"postgresql": func() DatabaseDriver { return &PostgresDriver{} },
+	"mysql": func() DatabaseDriver { return &MySQLDriver{} },
+	"sqlite": func() DatabaseDriver { return &SQLiteDriver{} },
+	"redis": func() DatabaseDriver { return &RedisDriver{} },
+	"oracle": func() DatabaseDriver { return &OracleDriver{} },
+}
+
+const defaultTimeoutMS = 30000
+const maxTimeoutMS = 3600000
+
+func executionContext(r *http.Request, timeoutMS int) (context.Context, context.CancelFunc, error) {
+	if timeoutMS < 0 || timeoutMS > maxTimeoutMS {
+		return nil, nil, fmt.Errorf("timeout_ms must be between 1 and %d (or omitted)", maxTimeoutMS)
+	}
+	if timeoutMS == 0 {
+		timeoutMS = defaultTimeoutMS
+	}
+	ctx, cancel := context.WithTimeout(r.Context(), time.Duration(timeoutMS) * time.Millisecond)
+	return ctx, cancel, nil
+}
+
+func writeExecutionError(w http.ResponseWriter, ctx context.Context, err error) {
+	code, status := "query", http.StatusInternalServerError
+	if ctx.Err() != nil {
+		err = ctx.Err()
+	}
+	if errors.Is(err, context.DeadlineExceeded) {
+		code, status = "timeout", http.StatusGatewayTimeout
+	} else if errors.Is(err, context.Canceled) {
+		code, status = "cancelled", http.StatusRequestTimeout
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	_ = json.NewEncoder(w).Encode(ErrorResponse{Error: err.Error(), ErrorCode: code})
+}
+
+func writeConnectionError(w http.ResponseWriter, ctx context.Context, err error) {
+	if ctx.Err() != nil {
+		writeExecutionError(w, ctx, err)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusBadGateway)
+	_ = json.NewEncoder(w).Encode(ErrorResponse{Error: fmt.Sprintf("Failed to connect: %v", err), ErrorCode: "transport"})
+}
+
+func handleHealth(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Only GET method is allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{"version": VERSION, "protocol": 1})
 }
 
 // jsonErrorMiddleware wraps HTTP errors in JSON format
@@ -84,15 +121,20 @@ func jsonErrorMiddleware(next http.HandlerFunc) http.HandlerFunc {
 type responseWriter struct {
 	http.ResponseWriter
 	statusCode int
+	wrapError  bool
 }
 
 func (rw *responseWriter) WriteHeader(code int) {
 	rw.statusCode = code
+	rw.wrapError = code >= 400 && rw.Header().Get("Content-Type") != "application/json"
+	if rw.wrapError {
+		rw.Header().Set("Content-Type", "application/json")
+	}
 	rw.ResponseWriter.WriteHeader(code)
 }
 
 func (rw *responseWriter) Write(b []byte) (int, error) {
-	if rw.statusCode >= 400 {
+	if rw.wrapError {
 		// If it's an error response, wrap it in JSON
 		w := rw.ResponseWriter
 		w.Header().Set("Content-Type", "application/json")
@@ -128,15 +170,27 @@ func handleQuery(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get appropriate driver
-	driver, ok := drivers[req.Database]
+	factory, ok := drivers[req.Database]
 	if !ok {
 		http.Error(w, fmt.Sprintf("Unsupported database type: %s", req.Database), http.StatusBadRequest)
 		return
 	}
 
+	ctx, cancel, err := executionContext(r, req.TimeoutMS)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	defer cancel()
+	driver := factory()
+	executor, ok := driver.(ContextDatabaseDriver)
+	if !ok {
+		http.Error(w, "Driver does not support cancellation", http.StatusBadRequest)
+		return
+	}
 	// Connect to database
 	if err := driver.Connect(req.Config); err != nil {
-		http.Error(w, fmt.Sprintf("Failed to connect: %v", err), http.StatusInternalServerError)
+		writeConnectionError(w, ctx, err)
 		return
 	}
 	defer driver.Close()
@@ -144,12 +198,12 @@ func handleQuery(w http.ResponseWriter, r *http.Request) {
 	// Execute query with pagination if provided
 	var result QueryResult
 	if req.Limit != nil || req.Offset != nil {
-		result, err = driver.QueryWithPagination(req.Query, req.Limit, req.Offset)
+		result, err = executor.QueryWithPaginationContext(ctx, req.Query, req.Limit, req.Offset)
 	} else {
-		result, err = driver.Query(req.Query)
+		result, err = executor.QueryContext(ctx, req.Query)
 	}
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		writeExecutionError(w, ctx, err)
 		return
 	}
 
@@ -179,21 +233,33 @@ func handleCount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	driver, ok := drivers[req.Database]
+	factory, ok := drivers[req.Database]
 	if !ok {
 		http.Error(w, fmt.Sprintf("Unsupported database type: %s", req.Database), http.StatusBadRequest)
 		return
 	}
 
+	ctx, cancel, err := executionContext(r, req.TimeoutMS)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	defer cancel()
+	driver := factory()
+	executor, ok := driver.(ContextDatabaseDriver)
+	if !ok {
+		http.Error(w, "Driver does not support cancellation", http.StatusBadRequest)
+		return
+	}
 	if err := driver.Connect(req.Config); err != nil {
-		http.Error(w, fmt.Sprintf("Failed to connect: %v", err), http.StatusInternalServerError)
+		writeConnectionError(w, ctx, err)
 		return
 	}
 	defer driver.Close()
 
-	count, err := driver.Count(req.Query)
+	count, err := executor.CountContext(ctx, req.Query)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		writeExecutionError(w, ctx, err)
 		return
 	}
 
@@ -216,12 +282,13 @@ func handleSchema(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	driver, ok := drivers[req.Database]
+	factory, ok := drivers[req.Database]
 	if !ok {
 		http.Error(w, fmt.Sprintf("Unsupported database type: %s", req.Database), http.StatusBadRequest)
 		return
 	}
 
+	driver := factory()
 	provider, ok := driver.(SchemaProvider)
 	if !ok {
 		http.Error(w, fmt.Sprintf("Schema completion is not supported for database type: %s", req.Database), http.StatusBadRequest)
@@ -260,6 +327,7 @@ func main() {
 		}
 	}
 
+	http.HandleFunc("/health", handleHealth)
 	http.HandleFunc("/query", jsonErrorMiddleware(handleQuery))
 	http.HandleFunc("/count", jsonErrorMiddleware(handleCount))
 	http.HandleFunc("/schema", jsonErrorMiddleware(handleSchema))

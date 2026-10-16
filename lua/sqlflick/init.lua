@@ -25,26 +25,127 @@ local function selected_database_or_notify()
   return nil
 end
 
+local active_execution = nil
+local result_context = nil
+
+local function render_result(query_text, result)
+  local focus = vim.api.nvim_get_current_win()
+  if
+    not (
+      M.display_win
+      and vim.api.nvim_win_is_valid(M.display_win)
+      and M.display_buf
+      and vim.api.nvim_buf_is_valid(M.display_buf)
+    )
+  then
+    M.display_buf, M.display_win = display.create_display_window()
+  end
+  vim.api.nvim_set_option_value("modifiable", true, { buf = M.display_buf })
+  local lines = query.format_query_results(result)
+  display.map_column_navigator(M.display_buf)
+  display.display_results(M.display_buf, M.display_win, result.error ~= nil, query_text, lines)
+  -- Results must not take focus away from edits made while a query was running.
+  if vim.api.nvim_win_is_valid(focus) then
+    vim.api.nvim_set_current_win(focus)
+  end
+end
+
+function M.is_running()
+  return active_execution ~= nil
+end
+
+local function cancel_active(quiet)
+  local execution = active_execution
+  if not execution then
+    return
+  end
+  active_execution = nil -- Invalidate callbacks before signalling the process.
+  if execution.request then
+    execution.request:cancel()
+  end
+  if execution.refresh and result_context then
+    pagination.state.current_page = result_context.page
+  else
+    pagination.reset()
+  end
+  if not quiet then
+    vim.notify("Query cancelled", vim.log.levels.INFO)
+  end
+end
+
+function M.cancel()
+  cancel_active(false)
+end
+
+local function begin_execution(query_text, db, backend, refresh)
+  local target_page = refresh and pagination.state.current_page
+  local target_offset = refresh and pagination.get_offset()
+  cancel_active(true)
+  if target_page then
+    pagination.state.current_page = target_page
+  end
+  local execution = { query_text = query_text, database = db, refresh = refresh }
+  active_execution = execution
+  vim.notify("Executing query… :SQLFlickCancel to cancel", vim.log.levels.INFO)
+  local function finish(result)
+    if active_execution ~= execution then
+      return
+    end
+    active_execution = nil
+    execution.request = nil
+    if result.error then
+      if refresh and result_context then
+        pagination.state.current_page = result_context.page
+      else
+        pagination.reset()
+      end
+    else
+      result_context =
+        { database = db, backend = backend, query_text = query_text, page = pagination.state.current_page }
+    end
+    render_result(query_text, result)
+    vim.notify(
+      result.error and "Query failed" or "Query complete",
+      result.error and vim.log.levels.ERROR or vim.log.levels.INFO
+    )
+  end
+  local function run_query()
+    execution.request = M.execute(query_text, db, backend, finish)
+  end
+  if refresh then
+    execution.request =
+      M.execute_with_pagination(query_text, db, backend, pagination.get_page_size(), target_offset, finish)
+  elseif not pagination.can_paginate(query_text, db) then
+    pagination.reset()
+    run_query()
+  else
+    pagination.reset()
+    execution.request = M.execute_count(query_text, db, backend, function(count_result)
+      if active_execution ~= execution then
+        return
+      end
+      execution.request = nil
+      if count_result.error then
+        -- Only a SQL count failure may fall back. A failed/cancelled transport
+        -- must not cause the SQL to run again with a fresh timeout.
+        if count_result.error_code and count_result.error_code ~= "query" then
+          finish(count_result)
+        else
+          run_query()
+        end
+      elseif count_result.count > pagination.get_page_size() then
+        pagination.init(query_text, db, backend, count_result.count)
+        execution.request = M.execute_with_pagination(query_text, db, backend, pagination.get_page_size(), 0, finish)
+      else
+        run_query()
+      end
+    end)
+  end
+end
+
 local function execute_query_text(query_text, db)
-  if not pagination.can_paginate(query_text, db) then
-    pagination.reset()
-    return M.execute(query_text, db, config.opts.backend)
-  end
-
-  local count_result = M.execute_count(query_text, db, config.opts.backend)
-  if count_result.error then
-    pagination.reset()
-    return M.execute(query_text, db, config.opts.backend)
-  end
-
-  if count_result.count > pagination.get_page_size() then
-    local page_size = pagination.get_page_size()
-    pagination.init(query_text, db, config.opts.backend, count_result.count)
-    return M.execute_with_pagination(query_text, db, config.opts.backend, page_size, 0)
-  end
-
-  pagination.reset()
-  return M.execute(query_text, db, config.opts.backend)
+  result_context = nil
+  begin_execution(query_text, db, config.opts.backend, false)
 end
 
 -- Show database selection
@@ -277,6 +378,7 @@ end
 -- Setup function that will be called by users
 function M.setup(opts)
   config.setup(opts)
+  pagination.set_page_size(config.opts.pagination.page_size)
   M.selected_database = tree.find_database_by_id(config.opts.databases, cache.load_selected_id())
 
   -- Check and install dependencies
@@ -297,8 +399,8 @@ function M.setup(opts)
     get_database = function()
       return M.selected_database
     end,
-    fetch_schema = function(database)
-      return M.fetch_schema(database, config.opts.backend)
+    fetch_schema = function(database, callback)
+      return M.fetch_schema(database, config.opts.backend, callback)
     end,
   })
 
@@ -393,12 +495,17 @@ function M.setup(opts)
   end, {})
 
   vim.api.nvim_create_user_command("SQLFlickRefreshSchema", function()
-    local schema, err = completion.refresh()
-    if not schema then
-      vim.notify("Failed to refresh SQL schema: " .. err, vim.log.levels.ERROR)
-      return
-    end
-    vim.notify(string.format("SQL schema refreshed (%d tables/views)", #schema.tables), vim.log.levels.INFO)
+    completion.refresh(function(schema, err)
+      if not schema then
+        vim.notify("Failed to refresh SQL schema: " .. err, vim.log.levels.ERROR)
+        return
+      end
+      vim.notify(string.format("SQL schema refreshed (%d tables/views)", #schema.tables), vim.log.levels.INFO)
+    end)
+  end, {})
+
+  vim.api.nvim_create_user_command("SQLFlickCancel", function()
+    M.cancel()
   end, {})
 
   -- Create query execution command
@@ -409,24 +516,7 @@ function M.setup(opts)
       return
     end
 
-    local result = execute_query_text(query_text, db)
-
-    if result then
-      if M.display_win and vim.api.nvim_win_is_valid(M.display_win) then
-        vim.api.nvim_set_current_win(M.display_win)
-        vim.api.nvim_set_option_value("modifiable", true, { buf = M.display_buf })
-        vim.api.nvim_buf_set_lines(M.display_buf, 2, -1, false, {})
-      else
-        local buf, win = display.create_display_window()
-        M.display_buf = buf
-        M.display_win = win
-      end
-
-      local lines = query.format_query_results(result)
-      local error = result.error ~= nil and true or false
-      display.map_column_navigator()
-      display.display_results(M.display_buf, M.display_win, error, query_text, lines)
-    end
+    execute_query_text(query_text, db)
   end, { nargs = 1 })
 
   -- Create file-based query execution command
@@ -481,24 +571,7 @@ function M.setup(opts)
       return
     end
 
-    local result = execute_query_text(query_text, db)
-
-    if result then
-      if M.display_win and vim.api.nvim_win_is_valid(M.display_win) then
-        vim.api.nvim_set_current_win(M.display_win)
-        vim.api.nvim_set_option_value("modifiable", true, { buf = M.display_buf })
-        vim.api.nvim_buf_set_lines(M.display_buf, 2, -1, false, {})
-      else
-        local buf, win = display.create_display_window()
-        M.display_buf = buf
-        M.display_win = win
-      end
-
-      local lines = query.format_query_results(result)
-      local error = result.error ~= nil and true or false
-      display.map_column_navigator()
-      display.display_results(M.display_buf, M.display_win, error, query_text, lines)
-    end
+    execute_query_text(query_text, db)
   end, {})
 
   if handler then
@@ -511,13 +584,12 @@ end
 ---@param query_text string
 ---@param database table
 ---@param backend_config table
-function M.execute(query_text, database, backend_config)
+function M.execute(query_text, database, backend_config, callback)
   if not handler then
     M.setup()
   end
 
-  handler = require("sqlflick.handler"):new(config.opts.backend.port)
-  return handler:execute_query(query_text, database, backend_config)
+  return handler:execute_query(query_text, database, backend_config, callback)
 end
 
 ---Execute a count query
@@ -525,13 +597,12 @@ end
 ---@param database table
 ---@param backend_config table
 ---@return { count?: number, error?: string }
-function M.execute_count(query_text, database, backend_config)
+function M.execute_count(query_text, database, backend_config, callback)
   if not handler then
     M.setup()
   end
 
-  handler = require("sqlflick.handler"):new(config.opts.backend.port)
-  return handler:execute_count(query_text, database, backend_config)
+  return handler:execute_count(query_text, database, backend_config, callback)
 end
 
 ---Execute a query with pagination
@@ -540,54 +611,34 @@ end
 ---@param backend_config table
 ---@param limit number|nil
 ---@param offset number|nil
-function M.execute_with_pagination(query_text, database, backend_config, limit, offset)
+function M.execute_with_pagination(query_text, database, backend_config, limit, offset, callback)
   if not handler then
     M.setup()
   end
 
-  handler = require("sqlflick.handler"):new(config.opts.backend.port)
-  return handler:execute_query_with_pagination(query_text, database, backend_config, limit, offset)
+  return handler:execute_query_with_pagination(query_text, database, backend_config, limit, offset, callback)
 end
 
 ---Fetch schema metadata for completion.
 ---@param database table
 ---@param backend_config table
----@return table|nil schema
+---@param callback fun(result: table)|nil
+---@return table|nil schema_or_request
 ---@return string|nil error
-function M.fetch_schema(database, backend_config)
+function M.fetch_schema(database, backend_config, callback)
   if not handler then
     handler = require("sqlflick.handler"):new(config.opts.backend.port)
   end
-  return handler:fetch_schema(database, backend_config)
+  return handler:fetch_schema(database, backend_config, callback)
 end
 
 ---Refresh current page (reload current page data)
 function M.refresh_current_page()
-  if not pagination.is_enabled() then
+  if not pagination.is_enabled() or not result_context then
     return
   end
-
-  local db = M.selected_database
-  if not db then
-    return
-  end
-
-  local query_text = pagination.state.query_text
-  local page_size = pagination.get_page_size()
-  local offset = pagination.get_offset()
-
-  local result = M.execute_with_pagination(query_text, db, config.opts.backend, page_size, offset)
-
-  if result and M.display_buf and M.display_win and vim.api.nvim_win_is_valid(M.display_win) then
-    vim.api.nvim_set_current_win(M.display_win)
-    vim.api.nvim_set_option_value("modifiable", true, { buf = M.display_buf })
-    vim.api.nvim_buf_set_lines(M.display_buf, 2, -1, false, {})
-
-    local lines = query.format_query_results(result)
-    local error = result.error ~= nil and true or false
-    display.map_column_navigator()
-    display.display_results(M.display_buf, M.display_win, error, query_text, lines)
-  end
+  local context = result_context
+  begin_execution(context.query_text, context.database, context.backend, true)
 end
 
 ---Install the backend binary
@@ -596,15 +647,16 @@ function M.install()
 end
 
 function M.restart()
+  cancel_active(true)
   if not handler then
     M.setup()
   end
-  handler = require("sqlflick.handler"):new(config.opts.backend.port)
   return handler:restart()
 end
 
 ---Stop the backend process
 function M.stop()
+  cancel_active(true)
   if handler then
     handler:stop()
     handler = nil

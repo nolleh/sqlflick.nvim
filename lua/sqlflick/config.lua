@@ -73,6 +73,7 @@ M.opts = {
   backend = {
     host = "127.0.0.1",
     port = 9081,
+    timeout_ms = 30000, -- Per HTTP/DB request; integer milliseconds (1..3600000)
   },
   -- Pagination settings
   pagination = {

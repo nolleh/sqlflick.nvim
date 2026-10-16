@@ -6,11 +6,12 @@ local state = {
   get_database = function()
     return nil
   end,
-  fetch_schema = function()
-    return nil, "schema fetcher is not configured"
+  fetch_schema = function(_, callback)
+    callback({ error = "schema fetcher is not configured" })
   end,
   schemas = {},
   failures = {},
+  loading = {},
   notify = function(message, level)
     vim.notify(message, level)
   end,
@@ -87,10 +88,32 @@ local function supports_schema(database)
   return database and (database.type == "postgresql" or database.type == "mysql" or database.type == "sqlite")
 end
 
-local function load_schema(force)
+local function record_failure(key, err)
+  local failure = state.failures[key] or { attempts = 0 }
+  failure.attempts = failure.attempts + 1
+  failure.error = err or "failed to load schema"
+  failure.disabled = failure.attempts >= max_schema_attempts
+  state.failures[key] = failure
+
+  if failure.disabled and not failure.notified then
+    failure.notified = true
+    state.notify(
+      string.format("SQL schema completion is disabled after %d failed attempts. ", max_schema_attempts)
+        .. "Resolve the database/backend issue, then run :SQLFlickRefreshSchema.",
+      vim.log.levels.WARN
+    )
+  end
+  return failure.error
+end
+
+local function load_schema(force, callback)
   local database = state.get_database()
   if not supports_schema(database) then
-    return nil, database and ("schema completion is not supported for " .. database.type) or "no database selected"
+    local err = database and ("schema completion is not supported for " .. database.type) or "no database selected"
+    if callback then
+      callback(nil, err)
+    end
+    return nil, err
   end
 
   local key = database_key(database)
@@ -104,30 +127,34 @@ local function load_schema(force)
     end
   end
 
-  local schema, err = state.fetch_schema(database)
-  if not schema then
-    local failure = state.failures[key] or { attempts = 0 }
-    failure.attempts = failure.attempts + 1
-    failure.error = err or "failed to load schema"
-    failure.disabled = failure.attempts >= max_schema_attempts
-    state.failures[key] = failure
-
-    if failure.disabled and not failure.notified then
-      failure.notified = true
-      state.notify(
-        string.format("SQL schema completion is disabled after %d failed attempts. ", max_schema_attempts)
-          .. "Resolve the database/backend issue, then run :SQLFlickRefreshSchema.",
-        vim.log.levels.WARN
-      )
-    end
-
-    return nil, failure.error
+  if state.loading[key] then
+    return nil, "schema is loading"
   end
 
-  schema.tables = schema.tables or {}
-  state.schemas[key] = schema
-  state.failures[key] = nil
-  return schema
+  local token = {}
+  state.loading[key] = token
+  token.request = state.fetch_schema(database, function(result)
+    if state.loading[key] ~= token then
+      return
+    end
+    state.loading[key] = nil
+
+    if type(result) ~= "table" or result.error then
+      local err = record_failure(key, type(result) == "table" and result.error or "failed to load schema")
+      if callback then
+        callback(nil, err)
+      end
+      return
+    end
+
+    result.tables = result.tables or {}
+    state.schemas[key] = result
+    state.failures[key] = nil
+    if callback then
+      callback(result)
+    end
+  end)
+  return nil, "schema is loading"
 end
 
 local function strip_identifier(identifier)
@@ -334,19 +361,25 @@ function M.attach(buffer)
   vim.api.nvim_set_option_value("omnifunc", "v:lua.sqlflick_completion_omnifunc", { buf = buffer })
 end
 
-function M.refresh()
+function M.refresh(callback)
   local database = state.get_database()
   if database then
     local key = database_key(database)
+    local loading = state.loading[key]
+    if loading and loading.request and loading.request.cancel then
+      loading.request:cancel()
+    end
+    state.loading[key] = nil
     state.schemas[key] = nil
     state.failures[key] = nil
   end
-  return load_schema(true)
+  return load_schema(true, callback)
 end
 
 function M.clear()
   state.schemas = {}
   state.failures = {}
+  state.loading = {}
 end
 
 function M.setup(opts)

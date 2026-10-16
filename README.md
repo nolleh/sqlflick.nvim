@@ -55,6 +55,11 @@ https://github.com/user-attachments/assets/c86c8eac-786b-4e93-917e-4e4f34b01b56
      It will be hard to move cursor to next column, by moving word by word.
     Use Navigating feature to fly on the columns
 
+## Requirements
+
+Neovim 0.10+ and curl are required for asynchronous query execution. Go is needed
+to build the backend with `:SQLFlickInstall`.
+
 ## Installation
 
 Using [Lazy.nvim](https://github.com/folke/lazy.nvim):
@@ -82,7 +87,7 @@ Using [Lazy.nvim](https://github.com/folke/lazy.nvim):
         })
     end,
     -- recommended load plugin option
-    cmd = { "SQLFlickSelectDB", "SQLFlickExecute", "SQLFlickExecuteBuf", "SQLFlickInstall", "SQLFlickRestart", "SQLFlickRefreshSchema" },
+    cmd = { "SQLFlickSelectDB", "SQLFlickExecute", "SQLFlickExecuteBuf", "SQLFlickCancel", "SQLFlickInstall", "SQLFlickRestart", "SQLFlickRefreshSchema" },
     -- If you want to load/enable the plugin only for specific file_type, use this
     ft = { "sql", "pgsql" },
 }
@@ -142,7 +147,8 @@ Without an explicit `id`, the connection's `name` is used as its cache ID.
     -- Backend settings
     backend = {
         host = "127.0.0.1",
-        port = 9081 -- use some unknown port that not conflicting with your environment
+        port = 9081, -- use an available local port
+        timeout_ms = 30000, -- Per request, including database execution
     },
 
     -- Native schema-aware completion
@@ -151,6 +157,23 @@ Without an explicit `id`, the connection's `name` is used as its cache ID.
     },
 }
 ```
+
+## Asynchronous query execution
+
+Query commands return immediately so you can keep editing while SQL runs.
+Use `:SQLFlickCancel` to stop the active query, COUNT, or page request. Starting a
+new query cancels the previous one; late responses cannot replace newer results.
+Result arrival preserves your current window focus.
+
+Set `backend.timeout_ms` to change the per-request timeout (default 30000 ms,
+range 1–3600000). COUNT and the following page query each have their own timeout.
+Cancellation is propagated to the database driver; it does not roll back writes
+that have already committed. Connection pools are reused per connection setting
+and have bounded capacity.
+
+After updating from an older backend, run `:SQLFlickInstall`, wait for the build
+to finish, then run `:SQLFlickRestart`. Schema omni-completion and programmatic
+query calls without a callback retain their existing synchronous behavior.
 
 ## SQL completion
 
@@ -243,6 +266,11 @@ Number of databases: 4
 ## Contributing
 
 We welcome and appreciate contributions from the community! Here's how you can help:
+
+Run the plugin tests with `make test`. To run the PostgreSQL end-to-end tests,
+start the Compose database and run `make test-e2e`; see the
+[async execution test guide](./docs/async-execution-tests.md) for coverage and
+connection settings.
 
 - **Bug Reports**: Found a bug? Please open an issue with detailed steps to reproduce.
 - **Feature Requests**: Have an idea for a new feature? Open an issue to discuss it.
