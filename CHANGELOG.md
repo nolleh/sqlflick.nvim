@@ -20,6 +20,8 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 - Decode asynchronous process responses on Neovim's main loop.
 - Apply the configured pagination page size to the first query.
 - Replace the running query notice when execution completes or fails.
+- Track an existing backend process so `:SQLFlickRestart` can replace it.
+- Load completion schemas asynchronously to keep Neovim responsive while a SQLite connection is busy.
 
 ### Changed
 
