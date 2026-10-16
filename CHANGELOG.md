@@ -24,7 +24,7 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 ### Changed
 
 - Preserve window focus when asynchronous results arrive and pin pagination to its original database.
-- Prepare backend version `0.7.0`; rebuild with `:SQLFlickInstall` after updating.
+- Backend version `0.7.0` is included; rebuild with `:SQLFlickInstall` after updating.
 
 ## [0.6.5] - 2026-10-15
 

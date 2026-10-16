@@ -267,6 +267,11 @@ Number of databases: 4
 
 We welcome and appreciate contributions from the community! Here's how you can help:
 
+Run the plugin tests with `make test`. To run the PostgreSQL end-to-end tests,
+start the Compose database and run `make test-e2e`; see the
+[async execution test guide](./docs/async-execution-tests.md) for coverage and
+connection settings.
+
 - **Bug Reports**: Found a bug? Please open an issue with detailed steps to reproduce.
 - **Feature Requests**: Have an idea for a new feature? Open an issue to discuss it.
 - **Code Contributions**: Submit a pull request with a clear description of your changes
