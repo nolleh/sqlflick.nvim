@@ -5,6 +5,12 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      run_postgres_e2e:
+        description: Run PostgreSQL end-to-end tests (starts a Docker service)
+        type: boolean
+        required: false
+        default: false
 
 permissions:
   contents: read
@@ -82,6 +88,7 @@ jobs:
 
   postgres:
     name: PostgreSQL / end to end
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_postgres_e2e }}
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     env:

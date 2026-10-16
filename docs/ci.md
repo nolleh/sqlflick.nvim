@@ -3,15 +3,16 @@
 The `Tests` GitHub Actions workflow installs the test dependencies on clean
 Ubuntu runners and runs on pull requests, pushes to `main`, and manual dispatch.
 Results appear in the PR's **Checks** tab and the repository's **Actions** tab.
-New commits cancel older runs for the same PR.
+New commits cancel older runs for the same PR. Neovim and Go checks run
+automatically; PostgreSQL E2E runs only when explicitly selected in a manual run.
 
 ## Checks
 
-| Check | Environment | Command |
-| --- | --- | --- |
-| Neovim | Neovim 0.10.4 and current stable, pinned Plenary | `make test` |
-| Go | Current stable Go, GCC/CGO, cached module dependencies | `go test -race -count=1 -timeout=120s -v ./...` in `backend/` |
-| PostgreSQL | Stable Neovim and Go, Plenary, PostgreSQL 15 service | `make test-e2e` |
+| Check | Trigger | Environment | Command |
+| --- | --- | --- | --- |
+| Neovim | Automatic and manual | Neovim 0.10.4 and current stable, pinned Plenary | `make test` |
+| Go | Automatic and manual | Current stable Go, GCC/CGO, cached module dependencies | `go test -race -count=1 -timeout=120s -v ./...` in `backend/` |
+| PostgreSQL | Manual opt-in only | Stable Neovim and Go, Plenary, PostgreSQL 15 service | `make test-e2e` |
 
 These run the repository's native tests, including any new `*_spec.lua` files
 under `tests/`; no substitute Neovim API runner is used by CI.
@@ -22,6 +23,15 @@ Makefile already recognizes. The Go setup action caches dependencies using
 toolchain. The PostgreSQL service waits for health checks before tests start.
 Its credentials are disposable test values and require no repository secrets.
 Other database services from the local Compose file are not started.
+
+## Run PostgreSQL E2E manually
+
+Open **Actions → Tests → Run workflow**, select the branch, check
+**Run PostgreSQL end-to-end tests (starts a Docker service)**, and run the workflow.
+The option defaults to off. PR and push events skip the entire PostgreSQL job,
+so they do not start its Docker service. Manual runs without the option also
+skip it. The workflow must be present on `main` for the manual-run control to
+be available.
 
 ## Local equivalents
 

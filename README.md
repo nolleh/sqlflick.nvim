@@ -267,8 +267,9 @@ Number of databases: 4
 
 We welcome and appreciate contributions from the community! Here's how you can help:
 
-GitHub Actions runs Neovim/Plenary, Go race tests, and PostgreSQL end-to-end
-checks for pull requests and pushes to `main`; see the [CI guide](./docs/ci.md).
+GitHub Actions runs Neovim/Plenary and Go race tests for pull requests and pushes
+to `main`. PostgreSQL end-to-end tests run on explicit manual request; see the
+[CI guide](./docs/ci.md).
 
 Run the plugin tests with `make test`. To run the PostgreSQL end-to-end tests,
 start the Compose database and run `make test-e2e`; see the
