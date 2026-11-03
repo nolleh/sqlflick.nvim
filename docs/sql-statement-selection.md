@@ -27,12 +27,12 @@ quote escapes, `--` line comments, and `/* ... */` block comments.
 
 The selected database type determines additional rules:
 
-| Database   | Additional handling                                                                              |
-| ---------- | ------------------------------------------------------------------------------------------------ |
-| PostgreSQL | Nested block comments, `$$...$$` / `$tag$...$tag$`, and backslash escapes in `E'...'`            |
-| MySQL      | Backtick identifiers, backslash escapes in strings, `#` comments, whitespace required after `--` |
-| SQLite     | Backtick and bracket identifiers                                                                 |
-| Oracle     | Alternative quoted strings such as `q'[it’s; text]'`                                             |
+| Database   | Additional handling                                                                                                              |
+| ---------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| PostgreSQL | Nested block comments, `$$...$$` / `$tag$...$tag$`, and backslash escapes in `E'...'`                                            |
+| MySQL      | Backtick identifiers, backslash escapes in strings, `#` comments, executable `/*!...*/` comments, whitespace required after `--` |
+| SQLite     | Backtick and bracket identifiers                                                                                                 |
+| Oracle     | Alternative quoted strings such as `q'[it’s; text]'`                                                                             |
 
 PostgreSQL ordinary strings assume the default `standard_conforming_strings=on`.
 MySQL assumes its default string escaping rules; server SQL-mode overrides such

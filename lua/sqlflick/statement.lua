@@ -6,17 +6,29 @@ local function identifier_char(c)
 end
 
 local function dollar_tag(text, i)
-  if i > 1 and identifier_char(text:sub(i - 1, i - 1)) then return nil end
-  if text:sub(i + 1, i + 1) == "$" then return "$$" end
+  if i > 1 and identifier_char(text:sub(i - 1, i - 1)) then
+    return nil
+  end
+  if text:sub(i + 1, i + 1) == "$" then
+    return "$$"
+  end
   local j = i + 1
   local first = text:sub(j, j)
-  if not (first:match("[%a_]") or (first:byte() or 0) >= 128) then return nil end
-  repeat j = j + 1 until not identifier_char(text:sub(j, j)) or text:sub(j, j) == "$"
-  if text:sub(j, j) == "$" then return text:sub(i, j) end
+  if not (first:match("[%a_]") or (first:byte() or 0) >= 128) then
+    return nil
+  end
+  repeat
+    j = j + 1
+  until not identifier_char(text:sub(j, j)) or text:sub(j, j) == "$"
+  if text:sub(j, j) == "$" then
+    return text:sub(i, j)
+  end
 end
 
 local function selected(text, first, last, has_sql)
-  if not has_sql then return nil, "No SQL statement at cursor" end
+  if not has_sql then
+    return nil, "No SQL statement at cursor"
+  end
   return (text:sub(first, last):gsub("^%s+", ""):gsub("%s+$", ""))
 end
 
@@ -43,14 +55,18 @@ function M.extract(text, cursor, dialect)
   while i <= #text do
     local c, pair = text:sub(i, i), text:sub(i, i + 1)
     if state == "line_comment" then
-      if c == "\n" or c == "\r" then state = "normal" end
+      if c == "\n" or c == "\r" then
+        state = "normal"
+      end
       i = i + 1
     elseif state == "block_comment" then
       if postgres and pair == "/*" then
         depth, i = depth + 1, i + 2
       elseif pair == "*/" then
         depth, i = depth - 1, i + 2
-        if depth == 0 then state = "normal" end
+        if depth == 0 then
+          state = "normal"
+        end
       else
         i = i + 1
       end
@@ -68,11 +84,16 @@ function M.extract(text, cursor, dialect)
       end
     elseif state == "dollar" then
       local ending = text:find(tag, i, true)
-      if not ending then return nil, "Unterminated dollar-quoted SQL text" end
+      if not ending then
+        return nil, "Unterminated dollar-quoted SQL text"
+      end
       state, i = "normal", ending + #tag
     elseif state == "oracle_quote" then
-      if pair == closer .. "'" then state, i = "normal", i + 2
-      else i = i + 1 end
+      if pair == closer .. "'" then
+        state, i = "normal", i + 2
+      else
+        i = i + 1
+      end
     else
       local after_dash = text:sub(i + 2, i + 2)
       if pair == "--" and (not mysql or after_dash == "" or after_dash:byte() <= 32) then
@@ -80,26 +101,42 @@ function M.extract(text, cursor, dialect)
       elseif mysql and c == "#" then
         state, i = "line_comment", i + 1
       elseif pair == "/*" then
+        if mysql and text:sub(i + 2, i + 2) == "!" then
+          has_sql = true
+        end
         state, depth, i = "block_comment", 1, i + 2
       elseif c == "'" or c == '"' or ((mysql or sqlite) and c == "`") or (sqlite and c == "[") then
         local prefix = text:sub(i - 1, i - 1)
-        escapes = (mysql and c ~= "`") or (postgres and c == "'" and (prefix == "E" or prefix == "e")
-          and (i <= 2 or not identifier_char(text:sub(i - 2, i - 2))))
+        escapes = (mysql and c ~= "`")
+          or (
+            postgres
+            and c == "'"
+            and (prefix == "E" or prefix == "e")
+            and (i <= 2 or not identifier_char(text:sub(i - 2, i - 2)))
+          )
         closer, doubled = c == "[" and "]" or c, c ~= "["
         state, has_sql, i = "quoted", true, i + 1
       elseif postgres and c == "$" and dollar_tag(text, i) then
         tag = dollar_tag(text, i)
         state, has_sql, i = "dollar", true, i + #tag
-      elseif dialect == "oracle" and (c == "q" or c == "Q") and text:sub(i + 1, i + 1) == "'"
-        and (i == 1 or not identifier_char(text:sub(i - 1, i - 1))) then
+      elseif
+        dialect == "oracle"
+        and (c == "q" or c == "Q")
+        and text:sub(i + 1, i + 1) == "'"
+        and (i == 1 or not identifier_char(text:sub(i - 1, i - 1)))
+      then
         local opening = text:sub(i + 2, i + 2)
         closer = q_closers[opening] or opening
         state, has_sql, i = "oracle_quote", true, i + 3
       elseif c == ";" then
-        if cursor <= i then return selected(text, first, i, has_sql) end
+        if cursor <= i then
+          return selected(text, first, i, has_sql)
+        end
         first, has_sql, i = i + 1, false, i + 1
       else
-        if not c:match("%s") then has_sql = true end
+        if not c:match("%s") then
+          has_sql = true
+        end
         i = i + 1
       end
     end
@@ -119,7 +156,9 @@ function M.at_cursor(lines, row, col, dialect)
     return selected(lines[row], 1, #lines[row], lines[row]:find("%S") ~= nil)
   end
   local cursor = col + 1
-  for i = 1, row - 1 do cursor = cursor + #lines[i] + 1 end
+  for i = 1, row - 1 do
+    cursor = cursor + #lines[i] + 1
+  end
   return M.extract(table.concat(lines, "\n"), cursor, dialect)
 end
 

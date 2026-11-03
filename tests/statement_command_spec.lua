@@ -137,6 +137,13 @@ describe("SQLFlickExecuteBuf statement extraction", function()
     assert.equals(0, #executed)
   end)
 
+  it("sends MySQL executable comments unchanged", function()
+    db.type = "mysql"
+    lines = { "/*!40101 SET @value = 'a;b' */;" }
+    commands.SQLFlickExecuteBuf({})
+    assert.equals(lines[1], executed[1])
+  end)
+
   it("keeps explicit visual selections unchanged", function()
     lines, mode = { "SELECT 1;", "SELECT 2;" }, "V"
     commands.SQLFlickExecuteBuf({})
