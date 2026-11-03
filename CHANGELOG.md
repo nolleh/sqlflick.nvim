@@ -6,6 +6,19 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## [Unreleased]
 
+## [0.7.1] - 2026-11-03
+
+### Fixed
+
+- Execute the SQL statement containing the cursor instead of relying on line and blank-line boundaries.
+- Keep semicolons inside dialect-specific strings, quoted identifiers, and comments from splitting statements.
+- Reject comment-only input and unterminated quoted text or block comments before contacting the backend.
+
+### Changed
+
+- Preserve internal blank lines and whitespace while trimming only the selected statement's outer whitespace.
+- Document supported PostgreSQL, MySQL, SQLite, and Oracle lexical rules and known limitations.
+
 ## [0.7.0] - 2026-10-16
 
 ### Added
