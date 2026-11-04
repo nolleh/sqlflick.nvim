@@ -6,6 +6,10 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## [Unreleased]
 
+### Added
+
+- Confirm a cached connection before the first query command of a session; `q`, Enter, or Esc cancels, and explicitly selecting a database skips confirmation.
+
 ## [0.7.1] - 2026-11-03
 
 ### Fixed

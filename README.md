@@ -109,6 +109,14 @@ discarded; the new cache stores only a version and the selected database ID.
 If the configured ID cannot be found or is duplicated, select a database again.
 Without an explicit `id`, the connection's `name` is used as its cache ID.
 
+When a connection is restored from cache, the first query command asks you to
+confirm its name, type, host, port, and database. Choose `Run` (`r`) to execute;
+`Quit` (`q`), Enter (the default), or Esc cancels without sending the query or
+opening a result window. A cancelled confirmation appears again on the next
+attempt. After approval, subsequent queries in the same session do not ask again.
+Selecting a connection with `:SQLFlickSelectDB` also skips this confirmation.
+This applies to both `:SQLFlickExecute` and `:SQLFlickExecuteBuf`.
+
 ## Configuration
 
 [full-configuration](./lua/sqlflick/config.lua)  
