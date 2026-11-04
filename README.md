@@ -117,6 +117,84 @@ attempt. After approval, subsequent queries in the same session do not ask again
 Selecting a connection with `:SQLFlickSelectDB` also skips this confirmation.
 This applies to both `:SQLFlickExecute` and `:SQLFlickExecuteBuf`.
 
+## Statusline integration
+
+SQLFlick provides two APIs: `statusline()` for the built-in UI and `status()`
+for custom components.
+
+`require("sqlflick").statusline()` returns a component with a rounded leading
+edge, database icon, connection/database labels, and highlighted state icons:
+
+```text
+󰆼  local_postgres/test_db 󰋗   (cached connection awaiting confirmation)
+󰆼  local_postgres/test_db 󰑮   (query running)
+󰆼  local_postgres/test_db     (idle)
+```
+
+The function returns an empty string when no connection is selected. SQLFlick
+does not replace your statusline configuration. With NvChad, add a custom
+module while preserving lazy loading:
+
+```lua
+M.ui = {
+    statusline = {
+        order = {
+            "mode", "file", "git", "%=", "lsp_msg", "%=",
+            "diagnostics", "lsp", "sqlflick", "cwd", "cursor",
+        },
+        modules = {
+            sqlflick = function()
+                local sqlflick = package.loaded["sqlflick"]
+                return sqlflick and sqlflick.statusline() or ""
+            end,
+        },
+    },
+}
+```
+
+Labels have control characters removed and percent signs escaped for native
+statusline evaluation. Use an integration that preserves native highlight
+codes; providers that apply their own formatting can instead use `status()`.
+The UI uses a Nerd Font for icons. If your statusline provider manages component
+boundaries itself, call `statusline({ separators = false })` to omit the rounded
+leading separator.
+
+Default highlights follow the current colorscheme and are restored after
+`ColorScheme`. Override these groups with `vim.api.nvim_set_hl()` or your theme's
+highlight configuration:
+
+| Highlight                 | Element                          |
+| ------------------------- | -------------------------------- |
+| `SQLFlickStatusIcon`      | Database icon block              |
+| `SQLFlickStatusName`      | Connection name (slightly muted) |
+| `SQLFlickStatusDatabase`  | Database name                    |
+| `SQLFlickStatusConfirm`   | Confirmation icon                |
+| `SQLFlickStatusRunning`   | Running icon                     |
+| `SQLFlickStatusSeparator` | Opening separator                |
+
+For custom rendering, `require("sqlflick").status()` returns `nil` without a
+selection, otherwise a fresh table containing unescaped labels and no credentials:
+
+```lua
+{
+    name = "local_postgres",
+    database = "test_db", -- empty string when absent
+    state = "running", -- "idle", "confirm", or "running"
+    running = { -- present only while a query is active
+        name = "local_postgres",
+        database = "test_db",
+        is_selected = true,
+    },
+}
+```
+
+Changing the selection during a query does not change its execution target.
+`running.is_selected` becomes `false`, and the built-in UI shows the original
+target beside the running icon. Confirmation and execution remain independently
+observable: `state` prioritizes `"confirm"` for an unconfirmed selection, while
+`running` still describes any active query. Escape labels yourself when building
+a native statusline from `status()`.
+
 ## Configuration
 
 [full-configuration](./lua/sqlflick/config.lua)  
@@ -216,11 +294,11 @@ See [CHANGELOG.md](./CHANGELOG.md) for release notes and version history.
 
 The following mappings are available for SQL-related file types (e.g., `.sql`, `.pgsql`, `.mysql`):
 
-| Command              | Mode | Key Binding  | Description                |
-| -------------------- | ---- | ------------ | -------------------------- |
-| `SQLFlickSelectDB`   | n    | `<leader>ss` | Select database connection |
+| Command              | Mode | Key Binding  | Description                 |
+| -------------------- | ---- | ------------ | --------------------------- |
+| `SQLFlickSelectDB`   | n    | `<leader>ss` | Select database connection  |
 | `SQLFlickExecuteBuf` | n    | `<leader>sq` | Execute statement at cursor |
-| `SQLFlickExecute`    | v    | `<leader>sq` | Execute selected query     |
+| `SQLFlickExecute`    | v    | `<leader>sq` | Execute selected query      |
 
 In the database selector, type to filter connections, use `<C-n>` and `<C-p>`
 to move through the list, and press Enter in the search input to select the

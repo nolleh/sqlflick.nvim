@@ -30,6 +30,57 @@ end
 local active_execution = nil
 local result_context = nil
 
+local function status_target(db)
+  return {
+    name = tostring(db.name or db.id or db.type or "database"),
+    database = tostring(db.database or ""),
+  }
+end
+
+local function redraw_statusline()
+  vim.cmd("redrawstatus")
+end
+
+---@class SQLFlickStatusTarget
+---@field name string
+---@field database string
+
+---@class SQLFlickRunningStatus: SQLFlickStatusTarget
+---@field is_selected boolean
+
+---@class SQLFlickStatus: SQLFlickStatusTarget
+---@field state "idle"|"confirm"|"running"
+---@field running? SQLFlickRunningStatus
+
+---Return a fresh, credential-free snapshot with unescaped labels, or nil.
+---@return SQLFlickStatus?
+function M.status()
+  local db = M.selected_database
+  if not db then
+    return nil
+  end
+
+  local status = status_target(db)
+  status.state = "idle"
+  if db == unconfirmed_cached_database then
+    status.state = "confirm"
+  elseif active_execution then
+    status.state = "running"
+  end
+  if active_execution then
+    status.running = status_target(active_execution.database)
+    status.running.is_selected = active_execution.database == db
+  end
+  return status
+end
+
+---Return the default icon/highlight UI as a native Neovim statusline fragment.
+---@param opts? SQLFlickStatuslineOptions
+---@return string
+function M.statusline(opts)
+  return require("sqlflick.statusline").render(M.status(), opts)
+end
+
 local function render_result(query_text, result)
   local focus = vim.api.nvim_get_current_win()
   if
@@ -62,6 +113,7 @@ local function cancel_active(quiet)
     return
   end
   active_execution = nil -- Invalidate callbacks before signalling the process.
+  redraw_statusline()
   if execution.request then
     execution.request:cancel()
   end
@@ -88,12 +140,14 @@ local function begin_execution(query_text, db, backend, refresh)
   end
   local execution = { query_text = query_text, database = db, refresh = refresh }
   active_execution = execution
+  redraw_statusline()
   vim.notify("Executing query… :SQLFlickCancel to cancel", vim.log.levels.INFO)
   local function finish(result)
     if active_execution ~= execution then
       return
     end
     active_execution = nil
+    redraw_statusline()
     execution.request = nil
     if result.error then
       if refresh and result_context then
@@ -242,6 +296,7 @@ local function show_database_selector()
     elseif item then
       M.selected_database = item.db_config
       unconfirmed_cached_database = nil
+      redraw_statusline()
       local id = item.db_config.id or item.db_config.name
       if tree.find_database_by_id(config.opts.databases, id) then
         cache.save_selected_id(id)
@@ -402,6 +457,7 @@ function M.setup(opts)
   pagination.set_page_size(config.opts.pagination.page_size)
   M.selected_database = tree.find_database_by_id(config.opts.databases, cache.load_selected_id())
   unconfirmed_cached_database = M.selected_database
+  redraw_statusline()
 
   -- Check and install dependencies
   if config.use_lua_http then
