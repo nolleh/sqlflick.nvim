@@ -30,40 +30,55 @@ end
 local active_execution = nil
 local result_context = nil
 
-local function clean_label(value)
-  return tostring(value or ""):gsub("%c", " ")
-end
-
-local function database_target(db)
-  local name = clean_label(db.name or db.id or db.type or "database")
-  local database = clean_label(db.database)
-  return database ~= "" and (name .. "/" .. database) or name
+local function status_target(db)
+  return {
+    name = tostring(db.name or db.id or db.type or "database"),
+    database = tostring(db.database or ""),
+  }
 end
 
 local function redraw_statusline()
   vim.cmd("redrawstatus")
 end
 
----Return the selected connection and execution state for statusline integrations.
----Percent signs are escaped for use in Neovim statusline expressions.
----@return string
-function M.statusline()
+---@class SQLFlickStatusTarget
+---@field name string
+---@field database string
+
+---@class SQLFlickRunningStatus: SQLFlickStatusTarget
+---@field is_selected boolean
+
+---@class SQLFlickStatus: SQLFlickStatusTarget
+---@field state "idle"|"confirm"|"running"
+---@field running? SQLFlickRunningStatus
+
+---Return a fresh, credential-free snapshot with unescaped labels, or nil.
+---@return SQLFlickStatus?
+function M.status()
   local db = M.selected_database
   if not db then
-    return ""
+    return nil
   end
 
-  local status = "SQL: " .. database_target(db)
+  local status = status_target(db)
+  status.state = "idle"
   if db == unconfirmed_cached_database then
-    status = status .. " (confirm)"
+    status.state = "confirm"
   elseif active_execution then
-    if active_execution.database == db then
-      status = status .. " (running)"
-    else
-      status = status .. " (running: " .. database_target(active_execution.database) .. ")"
-    end
+    status.state = "running"
   end
-  return status:gsub("%%", "%%%%")
+  if active_execution then
+    status.running = status_target(active_execution.database)
+    status.running.is_selected = active_execution.database == db
+  end
+  return status
+end
+
+---Return the default icon/highlight UI as a native Neovim statusline fragment.
+---@param opts? SQLFlickStatuslineOptions
+---@return string
+function M.statusline(opts)
+  return require("sqlflick.statusline").render(M.status(), opts)
 end
 
 local function render_result(query_text, result)

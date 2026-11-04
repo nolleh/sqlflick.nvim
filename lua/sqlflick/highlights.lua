@@ -1,6 +1,8 @@
 local M = {}
 
 function M.setup()
+  require("sqlflick.statusline").setup()
+
   -- Tab line highlights
   vim.api.nvim_set_hl(0, "SQLFlickTabLine", { bg = "#3c3836", fg = "#a89984" })
   vim.api.nvim_set_hl(0, "SQLFlickTabLineSel", { bg = "#504945", fg = "#ebdbb2", bold = true })
