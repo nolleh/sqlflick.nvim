@@ -4,8 +4,13 @@ describe("Asynchronous execution commands", function()
   local saved_modules, saved_notify, saved_confirm, initial_win, test_buf, autocmds_before
   local sqlflick, pending, rendered, notifications
   local db = {
-    id = "test", name = "test", type = "postgresql", database = "test",
-    host = "db.example.com", port = 5432, password = "test-secret-not-for-display",
+    id = "test",
+    name = "test",
+    type = "postgresql",
+    database = "test",
+    host = "db.example.com",
+    port = 5432,
+    password = "test-secret-not-for-display",
   }
   local backend = { host = "127.0.0.1", port = 9081, timeout_ms = 500 }
   local module_names = {
@@ -185,6 +190,33 @@ describe("Asynchronous execution commands", function()
     vim.api.nvim_cmd({ cmd = "SQLFlickExecute", args = { query or "SELECT 1;" } }, {})
   end
 
+  it("reports the selected cached connection before confirmation", function()
+    assert.equals("SQL: test/test (confirm)", sqlflick.statusline())
+    vim.fn.confirm = function()
+      return 2
+    end
+    run()
+    assert.equals("SQL: test/test (confirm)", sqlflick.statusline())
+  end)
+
+  it("reports running and idle connection states", function()
+    run()
+    assert.equals("SQL: test/test (running)", sqlflick.statusline())
+    pending[1]:complete({ count = 1 })
+    pending[2]:complete({ columns = {}, rows = {} })
+    assert.equals("SQL: test/test", sqlflick.statusline())
+  end)
+
+  it("returns an empty status without a selected connection", function()
+    sqlflick.selected_database = nil
+    assert.equals("", sqlflick.statusline())
+  end)
+
+  it("sanitizes control characters and statusline percent signs", function()
+    sqlflick.selected_database = { name = "prod%\nname", database = "app%db" }
+    assert.equals("SQL: prod%% name/app%%db", sqlflick.statusline())
+  end)
+
   it("shows the cached target with q as cancel and cancellation as the default", function()
     vim.fn.confirm = function(message, choices, default)
       assert.is_truthy(message:find("Name: test", 1, true))
@@ -231,7 +263,9 @@ describe("Asynchronous execution commands", function()
   end
 
   it("also blocks write statements when confirmation is cancelled", function()
-    vim.fn.confirm = function() return 2 end
+    vim.fn.confirm = function()
+      return 2
+    end
     run("UPDATE users SET active = 1;")
     assert.equals(0, #pending)
   end)
@@ -257,7 +291,10 @@ describe("Asynchronous execution commands", function()
         break
       end
     end
-    vim.fn.confirm = function() error("explicit selection must skip confirmation") end
+    vim.fn.confirm = function()
+      error("explicit selection must skip confirmation")
+    end
+    assert.equals("SQL: test/test", sqlflick.statusline())
     run()
     assert.equals(1, #pending)
   end)
@@ -309,6 +346,7 @@ describe("Asynchronous execution commands", function()
     assert.equals(1, #pending)
     assert.equals(0, #rendered)
     assert.equals("Query cancelled", notifications[#notifications])
+    assert.equals("SQL: test/test", sqlflick.statusline())
   end)
 
   it("cancels the page request after COUNT has already completed", function()
@@ -350,7 +388,8 @@ describe("Asynchronous execution commands", function()
 
   it("pins a running execution to its original database", function()
     run()
-    sqlflick.selected_database = { id = "other", type = "mysql", database = "other" }
+    sqlflick.selected_database = { id = "other", name = "other", type = "mysql", database = "other" }
+    assert.equals("SQL: other/other (running: test/test)", sqlflick.statusline())
     pending[1]:complete({ count = 21 })
     assert.same(db, pending[2].database)
   end)

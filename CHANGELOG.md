@@ -9,6 +9,7 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 ### Added
 
 - Confirm a cached connection before the first query command of a session; `q`, Enter, or Esc cancels, and explicitly selecting a database skips confirmation.
+- Expose `require("sqlflick").statusline()` for active-connection and query-state indicators in existing statusline plugins.
 
 ## [0.7.1] - 2026-11-03
 

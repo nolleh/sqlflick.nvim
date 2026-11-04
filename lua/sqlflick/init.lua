@@ -30,6 +30,42 @@ end
 local active_execution = nil
 local result_context = nil
 
+local function clean_label(value)
+  return tostring(value or ""):gsub("%c", " ")
+end
+
+local function database_target(db)
+  local name = clean_label(db.name or db.id or db.type or "database")
+  local database = clean_label(db.database)
+  return database ~= "" and (name .. "/" .. database) or name
+end
+
+local function redraw_statusline()
+  vim.cmd("redrawstatus")
+end
+
+---Return the selected connection and execution state for statusline integrations.
+---Percent signs are escaped for use in Neovim statusline expressions.
+---@return string
+function M.statusline()
+  local db = M.selected_database
+  if not db then
+    return ""
+  end
+
+  local status = "SQL: " .. database_target(db)
+  if db == unconfirmed_cached_database then
+    status = status .. " (confirm)"
+  elseif active_execution then
+    if active_execution.database == db then
+      status = status .. " (running)"
+    else
+      status = status .. " (running: " .. database_target(active_execution.database) .. ")"
+    end
+  end
+  return status:gsub("%%", "%%%%")
+end
+
 local function render_result(query_text, result)
   local focus = vim.api.nvim_get_current_win()
   if
@@ -62,6 +98,7 @@ local function cancel_active(quiet)
     return
   end
   active_execution = nil -- Invalidate callbacks before signalling the process.
+  redraw_statusline()
   if execution.request then
     execution.request:cancel()
   end
@@ -88,12 +125,14 @@ local function begin_execution(query_text, db, backend, refresh)
   end
   local execution = { query_text = query_text, database = db, refresh = refresh }
   active_execution = execution
+  redraw_statusline()
   vim.notify("Executing query… :SQLFlickCancel to cancel", vim.log.levels.INFO)
   local function finish(result)
     if active_execution ~= execution then
       return
     end
     active_execution = nil
+    redraw_statusline()
     execution.request = nil
     if result.error then
       if refresh and result_context then
@@ -242,6 +281,7 @@ local function show_database_selector()
     elseif item then
       M.selected_database = item.db_config
       unconfirmed_cached_database = nil
+      redraw_statusline()
       local id = item.db_config.id or item.db_config.name
       if tree.find_database_by_id(config.opts.databases, id) then
         cache.save_selected_id(id)
@@ -402,6 +442,7 @@ function M.setup(opts)
   pagination.set_page_size(config.opts.pagination.page_size)
   M.selected_database = tree.find_database_by_id(config.opts.databases, cache.load_selected_id())
   unconfirmed_cached_database = M.selected_database
+  redraw_statusline()
 
   -- Check and install dependencies
   if config.use_lua_http then

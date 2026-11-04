@@ -117,6 +117,43 @@ attempt. After approval, subsequent queries in the same session do not ask again
 Selecting a connection with `:SQLFlickSelectDB` also skips this confirmation.
 This applies to both `:SQLFlickExecute` and `:SQLFlickExecuteBuf`.
 
+## Statusline integration
+
+`require("sqlflick").statusline()` returns the selected connection for use as
+a component in an existing statusline. It also marks a cached connection that
+still needs confirmation and an active query:
+
+```text
+SQL: local_postgres/test_db (confirm)
+SQL: local_postgres/test_db (running)
+SQL: local_postgres/test_db
+```
+
+The function returns an empty string when no connection is selected. SQLFlick
+does not replace your statusline configuration. With NvChad, add a custom
+module while preserving lazy loading:
+
+```lua
+M.ui = {
+    statusline = {
+        order = {
+            "mode", "file", "git", "%=", "lsp_msg", "%=",
+            "sqlflick", "diagnostics", "lsp", "cwd", "cursor",
+        },
+        modules = {
+            sqlflick = function()
+                local sqlflick = package.loaded["sqlflick"]
+                return sqlflick and sqlflick.statusline() or ""
+            end,
+        },
+    },
+}
+```
+
+The same function can be used as a component in lualine or another statusline
+provider. Statusline control characters are removed and percent signs are
+escaped before the value is returned.
+
 ## Configuration
 
 [full-configuration](./lua/sqlflick/config.lua)  
@@ -216,11 +253,11 @@ See [CHANGELOG.md](./CHANGELOG.md) for release notes and version history.
 
 The following mappings are available for SQL-related file types (e.g., `.sql`, `.pgsql`, `.mysql`):
 
-| Command              | Mode | Key Binding  | Description                |
-| -------------------- | ---- | ------------ | -------------------------- |
-| `SQLFlickSelectDB`   | n    | `<leader>ss` | Select database connection |
+| Command              | Mode | Key Binding  | Description                 |
+| -------------------- | ---- | ------------ | --------------------------- |
+| `SQLFlickSelectDB`   | n    | `<leader>ss` | Select database connection  |
 | `SQLFlickExecuteBuf` | n    | `<leader>sq` | Execute statement at cursor |
-| `SQLFlickExecute`    | v    | `<leader>sq` | Execute selected query     |
+| `SQLFlickExecute`    | v    | `<leader>sq` | Execute selected query      |
 
 In the database selector, type to filter connections, use `<C-n>` and `<C-p>`
 to move through the list, and press Enter in the search input to select the
