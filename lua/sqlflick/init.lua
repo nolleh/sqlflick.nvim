@@ -17,6 +17,7 @@ local completion = require("sqlflick.completion")
 local statement = require("sqlflick.statement")
 
 M.selected_database = nil
+local unconfirmed_cached_database = nil
 
 local function selected_database_or_notify()
   if M.selected_database then
@@ -145,6 +146,24 @@ local function begin_execution(query_text, db, backend, refresh)
 end
 
 local function execute_query_text(query_text, db)
+  if db == unconfirmed_cached_database then
+    local function label(value)
+      return tostring(value or "N/A"):gsub("%c", " ")
+    end
+    local message = table.concat({
+      "Run query on the connection restored from the previous session?",
+      "Name: " .. label(db.name),
+      "Type: " .. label(db.type),
+      "Host: " .. label(db.host),
+      "Port: " .. label(db.port),
+      "Database: " .. label(db.database),
+    }, "\n")
+    -- q selects Quit; Enter defaults to Quit. Esc/interrupt also never approve.
+    if vim.fn.confirm(message, "&Run\n&Quit (cancel)", 2) ~= 1 then
+      return
+    end
+    unconfirmed_cached_database = nil
+  end
   result_context = nil
   begin_execution(query_text, db, config.opts.backend, false)
 end
@@ -222,6 +241,7 @@ local function show_database_selector()
       selector.update_selector_content(selector_buf, items, current_line)
     elseif item then
       M.selected_database = item.db_config
+      unconfirmed_cached_database = nil
       local id = item.db_config.id or item.db_config.name
       if tree.find_database_by_id(config.opts.databases, id) then
         cache.save_selected_id(id)
@@ -381,6 +401,7 @@ function M.setup(opts)
   config.setup(opts)
   pagination.set_page_size(config.opts.pagination.page_size)
   M.selected_database = tree.find_database_by_id(config.opts.databases, cache.load_selected_id())
+  unconfirmed_cached_database = M.selected_database
 
   -- Check and install dependencies
   if config.use_lua_http then

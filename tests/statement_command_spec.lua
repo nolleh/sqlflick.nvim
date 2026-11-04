@@ -1,5 +1,5 @@
 describe("SQLFlickExecuteBuf statement extraction", function()
-  local saved_modules, saved_api, saved_notify
+  local saved_modules, saved_api, saved_notify, saved_confirm
   local commands, executed, notifications, lines, cursor, mode, sqlflick, db
   local names = {
     "sqlflick",
@@ -22,6 +22,10 @@ describe("SQLFlickExecuteBuf statement extraction", function()
       saved_modules[name] = package.loaded[name]
     end
     saved_api, saved_notify = vim.api, vim.notify
+    saved_confirm = vim.fn.confirm
+    vim.fn.confirm = function()
+      return 1
+    end
     commands, executed, notifications = {}, {}, {}
     lines, cursor, mode = { "SELECT 1;" }, { 1, 0 }, "n"
     db = { id = "test", name = "test", type = "postgresql" }
@@ -101,6 +105,7 @@ describe("SQLFlickExecuteBuf statement extraction", function()
 
   after_each(function()
     vim.api, vim.notify = saved_api, saved_notify
+    vim.fn.confirm = saved_confirm
     for _, name in ipairs(names) do
       package.loaded[name] = saved_modules[name]
     end
