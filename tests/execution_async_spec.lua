@@ -25,6 +25,7 @@ describe("Asynchronous execution commands", function()
     "sqlflick.query",
     "sqlflick.handler",
     "sqlflick.pagination",
+    "sqlflick.history",
   }
 
   local function noop() end
@@ -55,6 +56,7 @@ describe("Asynchronous execution commands", function()
     end
 
     package.loaded["sqlflick"] = nil
+    package.loaded["sqlflick.history"] = nil
     package.loaded["sqlflick.config"] = {
       opts = {
         databases = { db },
@@ -163,6 +165,7 @@ describe("Asynchronous execution commands", function()
     end
     for _, name in ipairs({
       "SQLFlickDebug",
+      "SQLFlickHistory",
       "SQLFlickSelectDB",
       "SQLFlickInstall",
       "SQLFlickRestart",
@@ -189,6 +192,150 @@ describe("Asynchronous execution commands", function()
   local function run(query)
     vim.api.nvim_cmd({ cmd = "SQLFlickExecute", args = { query or "SELECT 1;" } }, {})
   end
+
+  it("records a single user query across count and page requests", function()
+    local history = require("sqlflick.history")
+    run()
+    assert.equals(1, #history.list())
+    assert.equals("running", history.list()[1].state)
+    pending[1]:complete({ count = 21 })
+    pending[2]:complete({ columns = {}, rows = {} })
+    assert.equals(1, #history.list())
+    assert.equals("success", history.list()[1].state)
+    assert.is_nil(history.list()[1].connection.password)
+    sqlflick.refresh_current_page()
+    assert.equals(1, #history.list())
+  end)
+
+  it("records failures and cancellations but ignores rejected confirmation", function()
+    local history = require("sqlflick.history")
+    vim.fn.confirm = function()
+      return 2
+    end
+    run()
+    assert.equals(0, #history.list())
+    vim.fn.confirm = function()
+      return 1
+    end
+    run("UPDATE users SET active=1;")
+    pending[1]:complete({ error = "failed" })
+    assert.equals("failed", history.list()[1].state)
+    run()
+    sqlflick.cancel()
+    pending[2]:complete({ count = 0 })
+    assert.equals("cancelled", history.list()[1].state)
+    assert.equals(2, #history.list())
+  end)
+
+  local function history_action(key)
+    vim.cmd("SQLFlickHistory")
+    local search = vim.api.nvim_get_current_buf()
+    for _, map in ipairs(vim.api.nvim_buf_get_keymap(search, "n")) do
+      if map.lhs == key then
+        map.callback()
+        return
+      end
+    end
+    error("history action missing: " .. key)
+  end
+
+  it("restores editable SQL without executing or changing the selection", function()
+    run("UPDATE users SET active=1;")
+    sqlflick.cancel()
+    local other = { id = "other", name = "other" }
+    sqlflick.selected_database = other
+    history_action("<CR>")
+    local buf = vim.api.nvim_get_current_buf()
+    assert.equals("sql", vim.bo[buf].filetype)
+    assert.is_true(vim.bo[buf].modifiable)
+    assert.same({ "UPDATE users SET active=1;" }, vim.api.nvim_buf_get_lines(buf, 0, -1, false))
+    assert.same(other, sqlflick.selected_database)
+    assert.equals(1, #pending)
+    vim.api.nvim_buf_delete(buf, { force = true })
+  end)
+
+  it("keeps history open after insert Escape so normal-mode actions remain available", function()
+    run("UPDATE users SET active=1;")
+    sqlflick.cancel()
+    for _, action in ipairs({ "<CR>", "r", "<Esc>" }) do
+      local count = #vim.api.nvim_list_wins()
+      vim.cmd("SQLFlickHistory")
+      local search = vim.api.nvim_get_current_buf()
+      local keys = vim.api.nvim_replace_termcodes("i<Esc>", true, false, true)
+      vim.api.nvim_feedkeys(keys, "xt", false)
+      assert.equals("n", vim.api.nvim_get_mode().mode)
+      assert.is_true(vim.api.nvim_buf_is_valid(search))
+      assert.equals(count + 3, #vim.api.nvim_list_wins())
+      keys = vim.api.nvim_replace_termcodes(action, true, false, true)
+      vim.api.nvim_feedkeys(keys, "xt", false)
+      assert.equals(count, #vim.api.nvim_list_wins())
+      assert.is_false(vim.api.nvim_buf_is_valid(search))
+      if action == "<CR>" then
+        local restored = vim.api.nvim_get_current_buf()
+        assert.same({ "UPDATE users SET active=1;" }, vim.api.nvim_buf_get_lines(restored, 0, -1, false))
+        vim.api.nvim_buf_delete(restored, { force = true })
+      elseif action == "r" then
+        assert.equals(2, #pending)
+        sqlflick.cancel()
+      end
+    end
+  end)
+
+  it("filters SQL literally and cleans up all picker windows on acceptance", function()
+    run("UPDATE users SET label='100%';")
+    sqlflick.cancel()
+    run("UPDATE users SET label='other';")
+    sqlflick.cancel()
+    local count = #vim.api.nvim_list_wins()
+    vim.cmd("SQLFlickHistory")
+    local search = vim.api.nvim_get_current_buf()
+    assert.equals(count + 3, #vim.api.nvim_list_wins())
+    vim.api.nvim_buf_set_lines(search, 0, -1, false, { "100%" })
+    vim.api.nvim_exec_autocmds("TextChanged", { buffer = search })
+    for _, map in ipairs(vim.api.nvim_buf_get_keymap(search, "n")) do
+      if map.lhs == "<CR>" then
+        map.callback()
+        break
+      end
+    end
+    assert.equals(count, #vim.api.nvim_list_wins())
+    local restored = vim.api.nvim_get_current_buf()
+    assert.same({ "UPDATE users SET label='100%';" }, vim.api.nvim_buf_get_lines(restored, 0, -1, false))
+    assert.is_false(vim.api.nvim_buf_is_valid(search))
+    vim.api.nvim_buf_delete(restored, { force = true })
+  end)
+
+  it("replays on the original connection after explicit confirmation", function()
+    run("UPDATE users SET active=1;")
+    sqlflick.cancel()
+    sqlflick.selected_database = { id = "other", name = "other" }
+    vim.fn.confirm = function(message, _, default)
+      assert.is_truthy(message:find("test/test", 1, true))
+      assert.is_truthy(message:find("UPDATE users SET active=1;", 1, true))
+      assert.equals(2, default)
+      return 1
+    end
+    history_action("r")
+    assert.equals(2, #pending)
+    assert.same(db, pending[2].database)
+    assert.equals("running", require("sqlflick.history").list()[1].state)
+  end)
+
+  it("does not replay a missing connection or a declined confirmation", function()
+    run("UPDATE users SET active=1;")
+    sqlflick.cancel()
+    vim.fn.confirm = function()
+      return 2
+    end
+    history_action("r")
+    assert.equals(1, #pending)
+    package.loaded["sqlflick.config"].opts.databases = {}
+    vim.fn.confirm = function()
+      error("must not confirm a missing connection")
+    end
+    history_action("r")
+    assert.equals(1, #pending)
+  end)
 
   it("reports the selected cached connection before confirmation", function()
     assert.same({ name = "test", database = "test", state = "confirm" }, sqlflick.status())

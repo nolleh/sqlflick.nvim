@@ -8,6 +8,8 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Added
 
+- Browse session query history with SQL/connection search, SQL preview, editable restoration, and confirmed replay on the original connection via `:SQLFlickHistory`.
+
 - Confirm a cached connection before the first query command of a session; `q`, Enter, or Esc cancels, and explicitly selecting a database skips confirmation.
 - Expose `require("sqlflick").status()` for credential-free connection/execution snapshots and `statusline()` for a built-in icon/highlight component with confirmation and running indicators.
 
