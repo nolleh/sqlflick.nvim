@@ -20,13 +20,15 @@ function M.open(opts)
     vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
     vim.bo[buf].modifiable = false
   end
-  local function close()
+  local function close(restore_origin)
     if closed then
       return
     end
     closed = true
     vim.api.nvim_del_augroup_by_id(group)
-    vim.cmd("stopinsert")
+    if restore_origin ~= false then
+      vim.cmd("stopinsert")
+    end
     for _, win in ipairs(windows) do
       if vim.api.nvim_win_is_valid(win) then
         vim.api.nvim_win_close(win, true)
@@ -37,7 +39,7 @@ function M.open(opts)
         vim.api.nvim_buf_delete(buf, { force = true })
       end
     end
-    if vim.api.nvim_win_is_valid(origin) then
+    if restore_origin ~= false and vim.api.nvim_win_is_valid(origin) then
       vim.api.nvim_set_current_win(origin)
     end
   end
@@ -123,7 +125,8 @@ function M.open(opts)
           valid = valid and vim.api.nvim_win_is_valid(win)
         end
         if not valid or not vim.tbl_contains(windows, current) then
-          close()
+          -- Leaving for another editor window/tab should keep that destination.
+          close(vim.tbl_contains(windows, current))
         end
       end)
     end,

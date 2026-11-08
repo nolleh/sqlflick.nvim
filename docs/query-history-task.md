@@ -281,7 +281,9 @@ begin_execution(item.sql, db, config.opts.backend, false)
 insert-mode Esc는 기본 Esc 동작으로 normal mode에 돌아오며 창을 닫지 않는다.
 
 `closed` 플래그를 먼저 설정해 여러 종료 이벤트가 겹쳐도 한 번만 정리한다.
-그다음 autocmd 그룹을 삭제하고 유효한 창과 버퍼만 닫은 뒤 원래 창으로 돌아간다.
+그다음 autocmd 그룹을 삭제하고 유효한 창과 버퍼만 닫는다.
+명시적인 종료·복원·재실행은 원래 창으로 돌아간다. 다른 편집창·탭으로 이동해서
+자동 정리되는 경우에는 `close(false)`로 이동한 목적지의 포커스와 모드를 유지한다.
 
 `WinClosed`/`WinEnter` 콜백은 `vim.schedule()`로 현재 이벤트 처리가 끝난 뒤
 창 상태를 확인한다. 창을 닫는 도중 또 다른 창 이벤트가 발생해도,
@@ -290,7 +292,7 @@ insert-mode Esc는 기본 Esc 동작으로 normal mode에 돌아오며 창을 �
 
 ## 6. 검증과 작업 상태
 
-insert-mode Esc 동작 수정 후 `make test`로 전체 192개 테스트가 통과했다.
+포커스 보존 수정 후 `make test`로 전체 199개 테스트가 통과했다.
 실제 키 입력으로 insert mode 진입 → Esc → 창 유지/normal mode 전환 →
 Enter 복원·`r` 재실행·normal-mode Esc 종료 흐름도 확인했다.
 
@@ -302,6 +304,9 @@ Enter 복원·`r` 재실행·normal-mode Esc 종료 흐름도 확인했다.
 | 같은 실행 테스트 파일                                         | insert-mode Esc 후 창 유지와 normal-mode Enter/r/Esc 동작                        |
 | 같은 실행 테스트 파일                                         | 원래 연결로 재실행, 확인 기본값 Quit, 확인 거절·연결 삭제 시 실행 차단           |
 
+`tests/picker_focus_spec.lua`에는 단일 float 종료의 Neovim 기본 포커스 동작 2개,
+다른 편집창/탭 이동 후 목적지 유지 2개, 명시적 q/Enter/r 후 원래 창 복귀 3개를 추가했다.
+
 실제 DB를 붙여 히스토리 동작을 검증한 결과는 이 문서에 포함하지 않았다.
 위 실행 테스트는 전송 응답을 제어하는 모의 transport와 실제 Neovim 창·버퍼·명령을 사용한다.
-현재 변경은 커밋 전 상태다.
+기본 기능은 `cc898da`에 커밋되었고, 포커스 보존은 PR #18의 후속 수정이다.
