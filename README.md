@@ -121,6 +121,9 @@ This applies to both `:SQLFlickExecute` and `:SQLFlickExecuteBuf`.
 
 `:SQLFlickHistory` (or `<leader>sh` in a SQL buffer) opens a searchable list of
 recent queries with a SQL preview.
+
+![](./docs/images/sql-history.png)
+
 Search by SQL or connection name; use `<C-n>`/`<C-p>` to move, or `j`/`k` in
 the normal-mode list. Press `<CR>` to restore SQL into an editable scratch buffer
 (the selected connection remains unchanged). Press `r` in normal mode to replay
