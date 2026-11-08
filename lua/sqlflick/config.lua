@@ -83,6 +83,11 @@ M.opts = {
   completion = {
     enabled = true,
   },
+  -- Session-only query history; SQL is never persisted to disk.
+  history = {
+    enabled = true,
+    max_entries = 100,
+  },
 }
 
 local function show_deprecation_popup(msg)
