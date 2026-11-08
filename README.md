@@ -117,6 +117,28 @@ attempt. After approval, subsequent queries in the same session do not ask again
 Selecting a connection with `:SQLFlickSelectDB` also skips this confirmation.
 This applies to both `:SQLFlickExecute` and `:SQLFlickExecuteBuf`.
 
+## Query history
+
+`:SQLFlickHistory` (or `<leader>sh` in a SQL buffer) opens a searchable list of
+recent queries with a SQL preview.
+Search by SQL or connection name; use `<C-n>`/`<C-p>` to move, or `j`/`k` in
+the normal-mode list. Press `<CR>` to restore SQL into an editable scratch buffer
+(the selected connection remains unchanged). Press `r` in normal mode to replay
+on the original connection after confirming the target and SQL. Missing,
+ambiguous, or changed connection identities cannot be replayed. `q` in normal
+mode closes the picker. `<Esc>` leaves insert mode first; pressing it in normal
+mode closes the picker.
+
+History records running, successful, failed, and cancelled user queries with
+timestamps and elapsed time. Internal COUNT requests and page refreshes do not
+create extra records; cancellation at the cached-connection prompt records
+nothing. The latest 100 entries are kept only in memory for this Neovim session.
+SQL may contain sensitive values; connection credentials and result rows are
+never stored in history. Configure `history = { enabled = false }` to disable it,
+or `history = { max_entries = 200 }` to change the limit.
+If you lazy-load SQLFlick by command, include `SQLFlickHistory` in the plugin
+spec's `cmd` list to open history before loading a SQL buffer.
+
 ## Statusline integration
 
 SQLFlick provides two APIs: `statusline()` for the built-in UI and `status()`
@@ -299,6 +321,7 @@ The following mappings are available for SQL-related file types (e.g., `.sql`, `
 | `SQLFlickSelectDB`   | n    | `<leader>ss` | Select database connection  |
 | `SQLFlickExecuteBuf` | n    | `<leader>sq` | Execute statement at cursor |
 | `SQLFlickExecute`    | v    | `<leader>sq` | Execute selected query      |
+| `SQLFlickHistory`    | n    | `<leader>sh` | Browse query history        |
 
 In the database selector, type to filter connections, use `<C-n>` and `<C-p>`
 to move through the list, and press Enter in the search input to select the

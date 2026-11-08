@@ -15,6 +15,7 @@ local cache = require("sqlflick.cache")
 local pagination = require("sqlflick.pagination")
 local completion = require("sqlflick.completion")
 local statement = require("sqlflick.statement")
+local history = require("sqlflick.history")
 
 M.selected_database = nil
 local unconfirmed_cached_database = nil
@@ -113,6 +114,7 @@ local function cancel_active(quiet)
     return
   end
   active_execution = nil -- Invalidate callbacks before signalling the process.
+  history.finish(execution.history, "cancelled")
   redraw_statusline()
   if execution.request then
     execution.request:cancel()
@@ -139,6 +141,9 @@ local function begin_execution(query_text, db, backend, refresh)
     pagination.state.current_page = target_page
   end
   local execution = { query_text = query_text, database = db, refresh = refresh }
+  if not refresh then
+    execution.history = history.start(query_text, db)
+  end
   active_execution = execution
   redraw_statusline()
   vim.notify("Executing query… :SQLFlickCancel to cancel", vim.log.levels.INFO)
@@ -147,6 +152,7 @@ local function begin_execution(query_text, db, backend, refresh)
       return
     end
     active_execution = nil
+    history.finish(execution.history, result.error and "failed" or "success")
     redraw_statusline()
     execution.request = nil
     if result.error then
@@ -454,6 +460,7 @@ end
 -- Setup function that will be called by users
 function M.setup(opts)
   config.setup(opts)
+  history.setup(config.opts.history)
   pagination.set_page_size(config.opts.pagination.page_size)
   M.selected_database = tree.find_database_by_id(config.opts.databases, cache.load_selected_id())
   unconfirmed_cached_database = M.selected_database
@@ -501,6 +508,28 @@ function M.setup(opts)
     show_database_selector()
   end, {})
 
+  vim.api.nvim_create_user_command("SQLFlickHistory", function()
+    require("sqlflick.history_picker").open(config.opts, function(item)
+      local db = tree.find_database_by_id(config.opts.databases, item.connection.id)
+      if not db or db.type ~= item.connection.type or db.database ~= item.connection.database then
+        vim.notify(
+          "Historical connection is missing, ambiguous, or changed. Restore and review the SQL instead.",
+          vim.log.levels.WARN
+        )
+        return
+      end
+      local target = tostring(db.name or db.id):gsub("%c", " ") .. "/" .. tostring(db.database or ""):gsub("%c", " ")
+      if vim.fn.confirm("Replay query on " .. target .. "?\n\n" .. item.sql, "&Run\n&Quit (cancel)", 2) ~= 1 then
+        return
+      end
+      if db == unconfirmed_cached_database then
+        unconfirmed_cached_database = nil
+      end
+      result_context = nil
+      begin_execution(item.sql, db, config.opts.backend, false)
+    end)
+  end, {})
+
   -- Create install command
   vim.api.nvim_create_user_command("SQLFlickInstall", function()
     install.exec()
@@ -541,6 +570,11 @@ function M.setup(opts)
       }, {})
     end, { silent = true, desc = "Execute selected SQL query", buffer = true })
     vim.keymap.set("n", "<leader>ss", ":SQLFlickSelectDB<CR>", { silent = true, desc = "Select DB from configuration" })
+    vim.keymap.set("n", "<leader>sh", "<cmd>SQLFlickHistory<CR>", {
+      silent = true,
+      desc = "Browse SQL query history",
+      buffer = true,
+    })
     if config.opts.completion.enabled then
       completion.attach(0)
     end
