@@ -14,11 +14,11 @@ import (
 	"time"
 )
 
-const VERSION = "0.7.0"
+const VERSION = "0.8.0"
 
 // QueryRequest represents an incoming SQL query request
 type QueryRequest struct {
-	TimeoutMS int `json:"timeout_ms,omitempty"`
+	TimeoutMS int    `json:"timeout_ms,omitempty"`
 	Database  string `json:"database"`
 	Query     string `json:"query"`
 	Config    Config `json:"config"`
@@ -54,10 +54,10 @@ type ErrorResponse struct {
 // Each request owns a driver wrapper; wrappers lease shared, bounded connection pools.
 var drivers = map[string]func() DatabaseDriver{
 	"postgresql": func() DatabaseDriver { return &PostgresDriver{} },
-	"mysql": func() DatabaseDriver { return &MySQLDriver{} },
-	"sqlite": func() DatabaseDriver { return &SQLiteDriver{} },
-	"redis": func() DatabaseDriver { return &RedisDriver{} },
-	"oracle": func() DatabaseDriver { return &OracleDriver{} },
+	"mysql":      func() DatabaseDriver { return &MySQLDriver{} },
+	"sqlite":     func() DatabaseDriver { return &SQLiteDriver{} },
+	"redis":      func() DatabaseDriver { return &RedisDriver{} },
+	"oracle":     func() DatabaseDriver { return &OracleDriver{} },
 }
 
 const defaultTimeoutMS = 30000
@@ -70,7 +70,7 @@ func executionContext(r *http.Request, timeoutMS int) (context.Context, context.
 	if timeoutMS == 0 {
 		timeoutMS = defaultTimeoutMS
 	}
-	ctx, cancel := context.WithTimeout(r.Context(), time.Duration(timeoutMS) * time.Millisecond)
+	ctx, cancel := context.WithTimeout(r.Context(), time.Duration(timeoutMS)*time.Millisecond)
 	return ctx, cancel, nil
 }
 

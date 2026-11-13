@@ -93,7 +93,9 @@ Using [Lazy.nvim](https://github.com/folke/lazy.nvim):
         })
     end,
     -- recommended load plugin option
-    cmd = { "SQLFlickSelectDB", "SQLFlickExecute", "SQLFlickExecuteBuf", "SQLFlickCancel", "SQLFlickInstall", "SQLFlickRestart", "SQLFlickRefreshSchema" },
+    cmd = { "SQLFlickSelectDB", "SQLFlickAddConnection", "SQLFlickExecute", "SQLFlickExecuteBuf", "SQLFlickCancel", "SQLFlickInstall", "SQLFlickRestart", "SQLFlickRefreshSchema" },
+    -- Load on Visual import even when editing .env, YAML, or another file type.
+    keys = { { "<leader>sa", mode = "x", desc = "Add selected DB connection" } },
     -- If you want to load/enable the plugin only for specific file_type, use this
     ft = { "sql", "pgsql" },
 }
@@ -109,74 +111,20 @@ discarded; the new cache stores only a version and the selected database ID.
 If the configured ID cannot be found or is duplicated, select a database again.
 Without an explicit `id`, the connection's `name` is used as its cache ID.
 
-During `setup()`, SQLFlick reads `vim.env.SQFLK_DB_URL` first. If it is unset or
-empty, SQLFlick reads `vim.env.DATABASE_URL` instead. The selected variable adds
-one connection to `:SQLFlickSelectDB`, named after that variable, alongside your
-configured databases:
+SQLFlick adds a picker connection from `SQFLK_DB_URL`, or `DATABASE_URL` when
+the former is unset or empty. The URL prefix determines the database type:
 
-```sh
-export SQFLK_DB_URL='postgresql://app@localhost:5432/app_dev?sslmode=require'
-nvim
-```
+| Database   | Example URL                                                 |
+| ---------- | ----------------------------------------------------------- |
+| PostgreSQL | `postgresql://user:pass@localhost:5432/app?sslmode=require` |
+| MySQL      | `mysql://user:pass@localhost:3306/app`                      |
+| Redis      | `redis://default:pass@localhost:6379/0`                     |
+| SQLite     | `file:./data/app.db`                                        |
+| Oracle     | `oracle://user:pass@localhost:1521/service`                 |
 
-`DATABASE_URL` can be used in the same way when `SQFLK_DB_URL` is unset or empty.
-If a nonempty `SQFLK_DB_URL` is invalid, unsupported, or conflicts with a manually
-configured connection, SQLFlick warns and does not fall back to `DATABASE_URL`.
-
-The URL prefix determines the database type. Network connections support a
-single host, percent-encoded credentials, and IPv6 addresses:
-
-| Database   | Supported input examples                                                                                                  |
-| ---------- | ------------------------------------------------------------------------------------------------------------------------- |
-| PostgreSQL | `postgresql://user:pass@localhost:5432/app?sslmode=require`, `postgres://...`, `jdbc:postgresql://...`                    |
-| MySQL      | `mysql://user:pass@localhost:3306/app?parseTime=true&tls=true`, `jdbc:mysql://localhost:3306/app?user=user&password=pass` |
-| Redis      | `redis://default:pass@localhost:6379/2`, `rediss://...` for TLS                                                           |
-| SQLite     | `file:./data/app.db?mode=ro`, `sqlite:///data/app.db`, `sqlite:////absolute/path/app.db`, `jdbc:sqlite:./data/app.db`     |
-| Oracle     | `oracle://user:pass@localhost:1521/service`, `jdbc:oracle:thin:user/pass@//localhost:1521/service`                        |
-
-Native connection options are passed to the corresponding Go driver. MySQL URLs
-use go-sql-driver/mysql option names (such as `tls`, `parseTime`, and `timeout`);
-Redis URLs preserve authentication, database number, and TLS. Redis pool limits
-and cancellation settings remain managed by SQLFlick. Oracle URLs use go-ora
-connection options. Driver-specific options are not interchangeable across
-languages.
-
-SQLite relative paths are resolved against Neovim's current working directory
-during `setup()`, then sent as absolute file URIs to the backend. `file:` inputs
-are interpreted as SQLite connections. In the SQLAlchemy-style syntax, three
-slashes denote a relative path and four denote an absolute path. In-memory
-databases are not supported by environment discovery.
-
-PostgreSQL JDBC parameters supported here are `user`, `password`,
-`sslmode`, `ssl`, `sslcert`, `sslkey`, `sslrootcert`, `connectTimeout`,
-`currentSchema`, `ApplicationName`, and `options`; unsupported JDBC parameters
-produce a warning instead of being silently discarded. JDBC `ssl=true` maps to
-`sslmode=verify-full`, and `ssl=false` maps to `sslmode=disable`.
-
-MySQL JDBC supports `user`, `password`, `connectTimeout`, `socketTimeout`, and
-`sslMode`. Timeouts are milliseconds; `socketTimeout` applies to both reads and
-writes. Supported `sslMode` values are `DISABLED`, `REQUIRED` (TLS without
-certificate verification), and `VERIFY_IDENTITY` (verified TLS). Other JDBC
-options produce a warning. Oracle JDBC support is limited to the Thin
-single-host service-name form shown above, with optional inline credentials
-and no JDBC query options; SID, TNS, and descriptor forms are not supported.
-Credentials supplied separately by an application are not discovered.
-
-URLs requiring multiple hosts, scheme-less DSNs (such as MySQL's
-`user:pass@tcp(host)/db`), and SQLAlchemy `+driver` prefixes are not currently
-supported by environment discovery. Use the existing `databases` configuration
-for connections that cannot be expressed using the supported URL forms.
-
-Set `database_url = false` in `setup()` to disable this feature. Missing or empty
-variables add nothing; invalid or unsupported values produce a warning and leave
-manual connections available. The selected variable's name and `env:`-prefixed ID
-(for example, `SQFLK_DB_URL` and `env:SQFLK_DB_URL`) identify this connection.
-Conflicting manual connection names or IDs prevent the environment entry from
-being added. Only its ID is cached, never the
-connection URL. This reads Neovim's process environment; `.env` files are not
-loaded automatically. After changing either environment variable, call `setup()` again
-to refresh the entry. Update the backend with `:SQLFlickInstall` and
-`:SQLFlickRestart` when upgrading to use URL connections.
+Basic JDBC forms are also supported. See the
+[Environment Connections wiki guide](https://github.com/nolleh/sqlflick.nvim/wiki/Environment-Connections)
+for all supported formats, options, and limitations.
 
 When a connection is restored from cache, the first query command asks you to
 confirm its name, type, host, port, and database. Choose `Run` (`r`) to execute;
@@ -286,13 +234,29 @@ See [CHANGELOG.md](./CHANGELOG.md) for release notes and version history.
 
 ## Key Mappings
 
-The following mappings are available for SQL-related file types (e.g., `.sql`, `.pgsql`, `.mysql`):
+Select a connection URL in any buffer and press `<leader>sa` to add it to the
+database picker. SQLFlick asks for a connection name, then opens the picker so
+you can choose a connection. It uses the same supported URL forms as environment
+discovery. Surrounding whitespace and matching quotes are removed; select the
+URL itself rather than an entire configuration assignment.
 
-| Command              | Mode | Key Binding  | Description                 |
-| -------------------- | ---- | ------------ | --------------------------- |
-| `SQLFlickSelectDB`   | n    | `<leader>ss` | Select database connection  |
-| `SQLFlickExecuteBuf` | n    | `<leader>sq` | Execute statement at cursor |
-| `SQLFlickExecute`    | v    | `<leader>sq` | Execute selected query      |
+You can also select a URL and run `:'<,'>SQLFlickAddConnection`. Cancelling the
+name prompt leaves the connection list unchanged. Names must be nonempty and
+unique across configured and imported connections. Imported URLs remain only in
+memory for the current Neovim session, and are not added to your configuration
+or cache. Adding a connection does not execute a query or connect to the DB.
+
+The Visual `<leader>sa` mapping is global once SQLFlick is loaded. If you lazy-load
+the plugin, include the `keys` entry shown above to use it before opening a SQL
+buffer. The other mappings are available for SQL-related file types
+(e.g., `.sql`, `.pgsql`, `.mysql`):
+
+| Command                 | Mode | Key Binding  | Description                 |
+| ----------------------- | ---- | ------------ | --------------------------- |
+| `SQLFlickSelectDB`      | n    | `<leader>ss` | Select database connection  |
+| `SQLFlickAddConnection` | x    | `<leader>sa` | Add selected connection URL |
+| `SQLFlickExecuteBuf`    | n    | `<leader>sq` | Execute statement at cursor |
+| `SQLFlickExecute`       | v    | `<leader>sq` | Execute selected query      |
 
 In the database selector, type to filter connections, use `<C-n>` and `<C-p>`
 to move through the list, and press Enter in the search input to select the

@@ -164,6 +164,7 @@ describe("Asynchronous execution commands", function()
     for _, name in ipairs({
       "SQLFlickDebug",
       "SQLFlickSelectDB",
+      "SQLFlickAddConnection",
       "SQLFlickInstall",
       "SQLFlickRestart",
       "SQLFlickRefreshSchema",
