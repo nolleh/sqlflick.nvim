@@ -6,6 +6,7 @@ local db = {
   username = "user",
   password = [[pass"word']],
   database = "test",
+  url = "postgresql://user:p%40ss@localhost/test?sslmode=require",
 }
 local backend = { host = "localhost", port = 9081 }
 local queries = {
@@ -88,6 +89,7 @@ curl() {
 
           assert.equals(query, received.query)
           assert.equals(db.password, received.config.password)
+          assert.equals(db.url, received.config.url)
           if method == "execute_query_with_pagination" then
             assert.equals(20, received.limit)
             assert.equals(0, received.offset)

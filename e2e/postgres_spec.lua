@@ -1,7 +1,7 @@
 -- Run with `make test-e2e` against the PostgreSQL service in tests/docker.
 -- The backend, curl transport, database, commands, and result UI are real.
 describe("PostgreSQL execution end to end", function()
-  local backend_job, sqlflick, db, original_cache, original_install, source_win
+  local backend_job, sqlflick, db, original_cache, original_install, original_confirm, source_win
 
   local function wait_for_result()
     assert.is_true(sqlflick.is_running(), "the command did not start an asynchronous request")
@@ -21,6 +21,10 @@ describe("PostgreSQL execution end to end", function()
   end
 
   before_each(function()
+    original_confirm = vim.fn.confirm
+    vim.fn.confirm = function()
+      return 1
+    end
     local bin = assert(vim.env.SQLFLICK_E2E_BACKEND_BIN, "build the backend with make test-e2e")
     local listener = assert(vim.loop.new_tcp())
     assert(listener:bind("127.0.0.1", 0))
@@ -71,6 +75,7 @@ describe("PostgreSQL execution end to end", function()
   end)
 
   after_each(function()
+    vim.fn.confirm = original_confirm
     if sqlflick then
       sqlflick.stop()
     end

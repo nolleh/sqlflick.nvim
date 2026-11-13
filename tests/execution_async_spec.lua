@@ -1,9 +1,17 @@
 -- Exercise real Neovim commands, buffers, windows, and autocmds while holding
 -- transport completions pending. No database connection or subprocess is needed.
 describe("Asynchronous execution commands", function()
-  local saved_modules, saved_notify, initial_win, test_buf, autocmds_before
+  local saved_modules, saved_notify, saved_confirm, initial_win, test_buf, autocmds_before
   local sqlflick, pending, rendered, notifications
-  local db = { id = "test", name = "test", type = "postgresql", database = "test" }
+  local db = {
+    id = "test",
+    name = "test",
+    type = "postgresql",
+    database = "test",
+    host = "db.example.com",
+    port = 5432,
+    password = "test-secret-not-for-display",
+  }
   local backend = { host = "127.0.0.1", port = 9081, timeout_ms = 500 }
   local module_names = {
     "sqlflick",
@@ -28,6 +36,10 @@ describe("Asynchronous execution commands", function()
     end
     pending, rendered, notifications = {}, {}, {}
     saved_notify = vim.notify
+    saved_confirm = vim.fn.confirm
+    vim.fn.confirm = function()
+      return 1
+    end
     initial_win = vim.api.nvim_get_current_win()
     autocmds_before = {}
     for _, autocmd in ipairs(vim.api.nvim_get_autocmds({ event = { "VimLeavePre", "FileType" } })) do
@@ -48,11 +60,13 @@ describe("Asynchronous execution commands", function()
         databases = { db },
         backend = backend,
         completion = { enabled = false },
+        selector = { width = 60, height = 15, border = "rounded" },
         pagination = { page_size = 20 },
       },
       setup = noop,
     }
     package.loaded["sqlflick.cache"] = {
+      save_selected_id = noop,
       load_selected_id = function()
         return "test"
       end,
@@ -166,6 +180,7 @@ describe("Asynchronous execution commands", function()
       vim.api.nvim_buf_delete(test_buf, { force = true })
     end
     vim.notify = saved_notify
+    vim.fn.confirm = saved_confirm
     for _, name in ipairs(module_names) do
       package.loaded[name] = saved_modules[name]
     end
@@ -174,6 +189,87 @@ describe("Asynchronous execution commands", function()
   local function run(query)
     vim.api.nvim_cmd({ cmd = "SQLFlickExecute", args = { query or "SELECT 1;" } }, {})
   end
+
+  it("shows the cached target with q as cancel and cancellation as the default", function()
+    vim.fn.confirm = function(message, choices, default)
+      assert.is_truthy(message:find("Name: test", 1, true))
+      assert.is_truthy(message:find("Type: postgresql", 1, true))
+      assert.is_truthy(message:find("Host: db.example.com", 1, true))
+      assert.is_truthy(message:find("Port: 5432", 1, true))
+      assert.is_truthy(message:find("Database: test", 1, true))
+      assert.is_nil(message:find(db.password, 1, true))
+      assert.equals("&Run\n&Quit (cancel)", choices)
+      assert.equals(2, default)
+      assert.equals(0, #pending)
+      assert.equals(0, #rendered)
+      assert.is_false(sqlflick.is_running())
+      return 2
+    end
+    run()
+    assert.equals(0, #pending)
+  end)
+
+  for _, choice in ipairs({ 0, 2 }) do
+    for _, command in ipairs({ "SQLFlickExecute", "SQLFlickExecuteBuf" }) do
+      it("sends no COUNT or query after confirmation choice " .. choice .. " in " .. command, function()
+        local confirmations = 0
+        vim.fn.confirm = function()
+          confirmations = confirmations + 1
+          return choice
+        end
+        local windows = #vim.api.nvim_list_wins()
+        for _ = 1, 2 do
+          if command == "SQLFlickExecute" then
+            run()
+          else
+            vim.cmd(command)
+          end
+        end
+        assert.equals(2, confirmations) -- Cancellation must not acknowledge the connection.
+        assert.equals(0, #pending)
+        assert.equals(0, #rendered)
+        assert.is_false(sqlflick.is_running())
+        assert.equals(windows, #vim.api.nvim_list_wins())
+        assert.equals(initial_win, vim.api.nvim_get_current_win())
+      end)
+    end
+  end
+
+  it("also blocks write statements when confirmation is cancelled", function()
+    vim.fn.confirm = function()
+      return 2
+    end
+    run("UPDATE users SET active = 1;")
+    assert.equals(0, #pending)
+  end)
+
+  it("asks once across both query commands after approval", function()
+    local confirmations = 0
+    vim.fn.confirm = function()
+      confirmations = confirmations + 1
+      return 1
+    end
+    run()
+    vim.cmd("SQLFlickExecuteBuf")
+    assert.equals(1, confirmations)
+    assert.equals(2, #pending)
+  end)
+
+  it("does not ask after explicitly selecting even the cached database", function()
+    vim.cmd("SQLFlickSelectDB")
+    local search_buf = vim.api.nvim_get_current_buf()
+    for _, map in ipairs(vim.api.nvim_buf_get_keymap(search_buf, "n")) do
+      if map.lhs == "<CR>" then
+        map.callback()
+        break
+      end
+    end
+    vim.fn.confirm = function()
+      error("explicit selection must skip confirmation")
+    end
+    run()
+    assert.equals(1, #pending)
+  end)
 
   it("returns from the query command while COUNT is still pending", function()
     run()

@@ -7,8 +7,7 @@ import (
 	"fmt"
 	"strings"
 
-	_ "github.com/go-sql-driver/mysql"
-	_ "github.com/lib/pq"
+	"github.com/lib/pq"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/redis/go-redis/v9"
 	_ "github.com/sijms/go-ora/v2"
@@ -32,6 +31,7 @@ type ContextDatabaseDriver interface {
 
 // Config holds database connection configuration
 type Config struct {
+	URL      string `json:"url,omitempty"`
 	Host     string `json:"host"`
 	Port     int    `json:"port"`
 	User     string `json:"user"`
@@ -45,9 +45,23 @@ type PostgresDriver struct {
 	release func() error
 }
 
+func postgresConnectionString(config Config) (string, error) {
+	if config.URL != "" {
+		dsn, err := pq.ParseURL(config.URL)
+		if err != nil {
+			return "", fmt.Errorf("invalid PostgreSQL connection URL")
+		}
+		return dsn, nil
+	}
+	return fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable",
+		config.Host, config.Port, config.User, config.Password, config.DBName), nil
+}
+
 func (d *PostgresDriver) Connect(config Config) error {
-	connStr := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable",
-		config.Host, config.Port, config.User, config.Password, config.DBName)
+	connStr, err := postgresConnectionString(config)
+	if err != nil {
+		return err
+	}
 	db, release, err := acquireSQLPool("postgres", connStr)
 	if err != nil {
 		return err
@@ -96,8 +110,10 @@ type MySQLDriver struct {
 }
 
 func (d *MySQLDriver) Connect(config Config) error {
-	connStr := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s",
-		config.User, config.Password, config.Host, config.Port, config.DBName)
+	connStr, err := mysqlConnectionString(config)
+	if err != nil {
+		return err
+	}
 	db, release, err := acquireSQLPool("mysql", connStr)
 	if err != nil {
 		return err
@@ -146,7 +162,11 @@ type SQLiteDriver struct {
 }
 
 func (d *SQLiteDriver) Connect(config Config) error {
-	db, release, err := acquireSQLPool("sqlite3", config.DBName)
+	connStr, err := sqliteConnectionString(config)
+	if err != nil {
+		return err
+	}
+	db, release, err := acquireSQLPool("sqlite3", connStr)
 	if err != nil {
 		return err
 	}
@@ -194,19 +214,13 @@ type RedisDriver struct {
 }
 
 func (d *RedisDriver) Connect(config Config) error {
+	opts, err := redisConnectionOptions(config)
+	if err != nil {
+		return err
+	}
 	identity, _ := json.Marshal(config)
 	value, release, err := connectionPools.acquire(poolKey("redis", string(identity)), func() (interface{}, func() error, error) {
-		client := redis.NewClient(&redis.Options{
-			Addr: fmt.Sprintf("%s:%d", config.Host, config.Port),
-			Password: config.Password,
-			DB: 0,
-			PoolSize: maxPoolConnections,
-			MaxActiveConns: maxPoolConnections,
-			MaxIdleConns: 2,
-			ConnMaxIdleTime: poolIdleTimeout,
-			ContextTimeoutEnabled: true,
-			MaxRetries: -1,
-		})
+		client := redis.NewClient(opts)
 		return client, client.Close, nil
 	})
 	if err != nil {
@@ -269,8 +283,10 @@ type OracleDriver struct {
 }
 
 func (d *OracleDriver) Connect(config Config) error {
-	connStr := fmt.Sprintf("oracle://%s:%s@%s:%d/%s", config.User,
-		config.Password, config.Host, config.Port, config.DBName)
+	connStr, err := oracleConnectionString(config)
+	if err != nil {
+		return err
+	}
 	db, release, err := acquireSQLPool("oracle", connStr)
 	if err != nil {
 		return fmt.Errorf("failed to configure Oracle connection: %w", err)
