@@ -22,8 +22,8 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Fixed
 
-- Confirm cached connections before the first query; cancellation sends no query,
-  and approval or explicit picker selection skips further session confirmations.
+- Accept file-backed SQLite URLs with a memory rollback journal while continuing
+  to reject actual in-memory database URLs.
 - Load URL parsing dependencies before plugin-manager runtime path changes so
   environment connections work with the development loader.
 
@@ -35,6 +35,14 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   different connection or including URL credentials in diagnostics.
 - Move detailed environment connection formats, options, and limitations to the
   [Environment Connections wiki guide](https://github.com/nolleh/sqlflick.nvim/wiki/Environment-Connections).
+
+## [0.7.2] - 2026-11-08
+
+### Added
+
+- Browse session query history with SQL/connection search, SQL preview, editable restoration, and confirmed replay on the original connection via `:SQLFlickHistory`.
+- Confirm a cached connection before the first query command of a session; `q`, Enter, or Esc cancels, and explicitly selecting a database skips confirmation.
+- Expose `require("sqlflick").status()` for credential-free connection/execution snapshots and `statusline()` for a built-in icon/highlight component with confirmation and running indicators.
 
 ## [0.7.1] - 2026-11-03
 

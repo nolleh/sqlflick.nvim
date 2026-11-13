@@ -132,6 +132,26 @@ describe("Database URL detection", function()
     end
   end)
 
+  it("allows a memory journal on a file-backed SQLite database", function()
+    for _, options in ipairs({
+      "_journal_mode=memory",
+      "_journal_mode=MEMORY",
+      "mode=rw&_journal_mode=memory",
+      "application=mode%3Dmemory",
+    }) do
+      local db = assert(connection.from_url("file:./app.db?" .. options))
+      assert.equals("sqlite", db.type)
+      assert.equals(vim.fn.getcwd() .. "/app.db", db.database)
+      assert.matches(options, db.url, 1, true)
+    end
+  end)
+
+  it("rejects the exact memory mode including percent-encoded parameters", function()
+    for _, options in ipairs({ "mode=memory", "cache=shared&mode=memory", "%6Dode=memory", "mode=%6Demory" }) do
+      assert.is_nil(connection.from_url("file:./app.db?" .. options))
+    end
+  end)
+
   for _, value in ipairs({
     "redis://localhost/not-a-number",
     "redis://localhost/-1",
@@ -193,7 +213,7 @@ describe("Environment connection configuration", function()
   for _, case in ipairs({
     { "mysql://app@localhost/app", "mysql" },
     { "redis://localhost/2", "redis" },
-    { "file:./app.db", "sqlite" },
+    { "file:./app.db?_journal_mode=memory", "sqlite" },
     { "oracle://app:pass@localhost/service", "oracle" },
   }) do
     it("adds a picker connection with inferred type " .. case[2], function()

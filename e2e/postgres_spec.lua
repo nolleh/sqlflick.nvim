@@ -93,6 +93,31 @@ describe("PostgreSQL execution end to end", function()
     package.loaded["sqlflick.install"] = original_install
   end)
 
+  it("cancels cached-connection confirmation before execution and allows a later approval", function()
+    local confirmations = 0
+    vim.fn.confirm = function()
+      confirmations = confirmations + 1
+      return 2
+    end
+    vim.api.nvim_cmd({ cmd = "SQLFlickExecute", args = { "SELECT 99 AS value" } }, {})
+    vim.api.nvim_buf_set_lines(0, 0, -1, false, { "SELECT 98 AS value;" })
+    vim.api.nvim_win_set_cursor(0, { 1, 0 })
+    vim.cmd("SQLFlickExecuteBuf")
+    assert.equals(2, confirmations)
+    assert.is_false(sqlflick.is_running())
+    assert.is_false(sqlflick.display_win ~= nil and vim.api.nvim_win_is_valid(sqlflick.display_win))
+
+    vim.fn.confirm = function()
+      confirmations = confirmations + 1
+      return 1
+    end
+    execute("SELECT 42 AS answer")
+    assert.equals(42, require("sqlflick.query").table_data.rows[1][1])
+    execute("SELECT 7 AS answer")
+    assert.equals(7, require("sqlflick.query").table_data.rows[1][1])
+    assert.equals(3, confirmations)
+  end)
+
   it("executes a query and renders the database result", function()
     local lines = execute("SELECT 42 AS answer")
     assert.is_truthy(table.concat(lines, "\n"):find("42", 1, true))

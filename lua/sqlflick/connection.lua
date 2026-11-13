@@ -20,6 +20,22 @@ local function encode(value)
   end))
 end
 
+local function parse_parameters(query)
+  local params = {}
+  for pair in (query or ""):gmatch("[^&]+") do
+    local key, val = pair:match("^([^=]+)=(.*)$")
+    if not key then
+      error("Invalid parameter")
+    end
+    key, val = decode(key:gsub("%+", " ")), decode(val:gsub("%+", " "))
+    if params[key] ~= nil then
+      error("Duplicate parameter")
+    end
+    params[key] = val
+  end
+  return params
+end
+
 local function sqlite_connection(value)
   local path, query = value:match("^(.-)%?(.*)$")
   path = path or value
@@ -43,7 +59,8 @@ local function sqlite_connection(value)
     error("Missing SQLite filename")
   end
   path = decode(path)
-  if path == ":memory:" or (query and query:find("mode=memory", 1, true)) then
+  local params = parse_parameters(query)
+  if path == ":memory:" or params.mode == "memory" then
     error("Memory databases cannot refer to the project's existing database")
   end
   local absolute = vim.fn.fnamemodify(path, ":p")
@@ -91,18 +108,7 @@ local function parse(value)
   local location, query = rest:match("^(.-)%?(.*)$")
   location = location or rest
   local authority, path = location:match("^([^/]*)(.*)$")
-  local params = {}
-  for pair in (query or ""):gmatch("[^&]+") do
-    local key, val = pair:match("^([^=]+)=(.*)$")
-    if not key then
-      error("Invalid parameter")
-    end
-    key, val = decode(key:gsub("%+", " ")), decode(val:gsub("%+", " "))
-    if params[key] ~= nil then
-      error("Duplicate parameter")
-    end
-    params[key] = val
-  end
+  local params = parse_parameters(query)
   if jdbc and db_type == "postgresql" then
     local names = {
       user = "user",
