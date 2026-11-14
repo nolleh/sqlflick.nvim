@@ -20,13 +20,6 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   Imported connections remain in memory for the current Neovim session.
 - Allow environment discovery to be disabled with `database_url = false`.
 
-### Fixed
-
-- Accept file-backed SQLite URLs with a memory rollback journal while continuing
-  to reject actual in-memory database URLs.
-- Load URL parsing dependencies before plugin-manager runtime path changes so
-  environment connections work with the development loader.
-
 ### Changed
 
 - Backend version `0.8.0` adds URL-based database connections. Rebuild with
