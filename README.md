@@ -93,7 +93,9 @@ Using [Lazy.nvim](https://github.com/folke/lazy.nvim):
         })
     end,
     -- recommended load plugin option
-    cmd = { "SQLFlickSelectDB", "SQLFlickExecute", "SQLFlickExecuteBuf", "SQLFlickCancel", "SQLFlickInstall", "SQLFlickRestart", "SQLFlickRefreshSchema" },
+    cmd = { "SQLFlickSelectDB", "SQLFlickAddConnection", "SQLFlickHistory", "SQLFlickExecute", "SQLFlickExecuteBuf", "SQLFlickCancel", "SQLFlickInstall", "SQLFlickRestart", "SQLFlickRefreshSchema" },
+    -- Load on Visual import even when editing .env, YAML, or another file type.
+    keys = { { "<leader>sa", mode = "x", desc = "Add selected DB connection" } },
     -- If you want to load/enable the plugin only for specific file_type, use this
     ft = { "sql", "pgsql" },
 }
@@ -108,6 +110,21 @@ executing a query. The old cache contained complete connection settings and is
 discarded; the new cache stores only a version and the selected database ID.
 If the configured ID cannot be found or is duplicated, select a database again.
 Without an explicit `id`, the connection's `name` is used as its cache ID.
+
+SQLFlick adds a picker connection from `SQFLK_DB_URL`, or `DATABASE_URL` when
+the former is unset or empty. The URL prefix determines the database type:
+
+| Database   | Example URL                                                 |
+| ---------- | ----------------------------------------------------------- |
+| PostgreSQL | `postgresql://user:pass@localhost:5432/app?sslmode=require` |
+| MySQL      | `mysql://user:pass@localhost:3306/app`                      |
+| Redis      | `redis://default:pass@localhost:6379/0`                     |
+| SQLite     | `file:./data/app.db`                                        |
+| Oracle     | `oracle://user:pass@localhost:1521/service`                 |
+
+Basic JDBC forms are also supported. See the
+[Environment Connections wiki guide](https://github.com/nolleh/sqlflick.nvim/wiki/Environment-Connections)
+for all supported formats, options, and limitations.
 
 When a connection is restored from cache, the first query command asks you to
 confirm its name, type, host, port, and database. Choose `Run` (`r`) to execute;
@@ -227,6 +244,9 @@ a native statusline from `status()`.
 
 ```lua
 {
+    -- Read SQFLK_DB_URL first, then DATABASE_URL; infer DB type from the URL.
+    database_url = true,
+
     -- Database connections
     databases = {
         -- {
@@ -317,14 +337,30 @@ See [CHANGELOG.md](./CHANGELOG.md) for release notes and version history.
 
 ## Key Mappings
 
-The following mappings are available for SQL-related file types (e.g., `.sql`, `.pgsql`, `.mysql`):
+Select a connection URL in any buffer and press `<leader>sa` to add it to the
+database picker. SQLFlick asks for a connection name, then opens the picker so
+you can choose a connection. It uses the same supported URL forms as environment
+discovery. Surrounding whitespace and matching quotes are removed; select the
+URL itself rather than an entire configuration assignment.
 
-| Command              | Mode | Key Binding  | Description                 |
-| -------------------- | ---- | ------------ | --------------------------- |
-| `SQLFlickSelectDB`   | n    | `<leader>ss` | Select database connection  |
-| `SQLFlickExecuteBuf` | n    | `<leader>sq` | Execute statement at cursor |
-| `SQLFlickExecute`    | v    | `<leader>sq` | Execute selected query      |
-| `SQLFlickHistory`    | n    | `<leader>sh` | Browse query history        |
+You can also select a URL and run `:'<,'>SQLFlickAddConnection`. Cancelling the
+name prompt leaves the connection list unchanged. Names must be nonempty and
+unique across configured and imported connections. Imported URLs remain only in
+memory for the current Neovim session, and are not added to your configuration
+or cache. Adding a connection does not execute a query or connect to the DB.
+
+The Visual `<leader>sa` mapping is global once SQLFlick is loaded. If you lazy-load
+the plugin, include the `keys` entry shown above to use it before opening a SQL
+buffer. The other mappings are available for SQL-related file types
+(e.g., `.sql`, `.pgsql`, `.mysql`):
+
+| Command                 | Mode | Key Binding  | Description                 |
+| ----------------------- | ---- | ------------ | --------------------------- |
+| `SQLFlickSelectDB`      | n    | `<leader>ss` | Select database connection  |
+| `SQLFlickAddConnection` | x    | `<leader>sa` | Add selected connection URL |
+| `SQLFlickExecuteBuf`    | n    | `<leader>sq` | Execute statement at cursor |
+| `SQLFlickExecute`       | v    | `<leader>sq` | Execute selected query      |
+| `SQLFlickHistory`       | n    | `<leader>sh` | Browse query history        |
 
 In the database selector, type to filter connections, use `<C-n>` and `<C-p>`
 to move through the list, and press Enter in the search input to select the

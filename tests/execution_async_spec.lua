@@ -62,12 +62,14 @@ describe("Asynchronous execution commands", function()
         databases = { db },
         backend = backend,
         completion = { enabled = false },
+        selector = { width = 60, height = 15, border = "rounded" },
         pagination = { page_size = 20 },
         selector = { width = 60, height = 15, border = "rounded" },
       },
       setup = noop,
     }
     package.loaded["sqlflick.cache"] = {
+      save_selected_id = noop,
       load_selected_id = function()
         return "test"
       end,
@@ -167,6 +169,7 @@ describe("Asynchronous execution commands", function()
       "SQLFlickDebug",
       "SQLFlickHistory",
       "SQLFlickSelectDB",
+      "SQLFlickAddConnection",
       "SQLFlickInstall",
       "SQLFlickRestart",
       "SQLFlickRefreshSchema",
@@ -335,6 +338,34 @@ describe("Asynchronous execution commands", function()
     end
     history_action("r")
     assert.equals(1, #pending)
+  end)
+
+  it("replays history on an imported SQLite file with a memory journal", function()
+    local original_input = vim.ui.input
+    vim.ui.input = function(_, callback)
+      callback("imported sqlite")
+    end
+    local ok, err = pcall(sqlflick.add_connection, "file:./app.db?_journal_mode=memory")
+    vim.ui.input = original_input
+    assert.is_true(ok, err)
+    local search = vim.api.nvim_get_current_buf()
+    vim.api.nvim_buf_set_lines(search, 0, -1, false, { "imported sqlite" })
+    vim.api.nvim_exec_autocmds("TextChangedI", { buffer = search })
+    for _, map in ipairs(vim.api.nvim_buf_get_keymap(search, "n")) do
+      if map.lhs == "<CR>" then
+        map.callback()
+        break
+      end
+    end
+    local imported = sqlflick.selected_database
+    assert.equals("imported sqlite", imported.name)
+    run("UPDATE items SET active=1;")
+    sqlflick.cancel()
+    history_action("r")
+    assert.equals(2, #pending)
+    assert.equals(imported, pending[2].database)
+    assert.matches("_journal_mode=memory", pending[2].database.url, 1, true)
+    assert.is_nil(require("sqlflick.history").list()[1].connection.url)
   end)
 
   it("reports the selected cached connection before confirmation", function()

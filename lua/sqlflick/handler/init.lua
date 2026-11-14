@@ -171,6 +171,7 @@ function Handler:request_async(endpoint, query, db_config, backend_config, limit
       user = db_config.username,
       password = db_config.password,
       dbname = db_config.database,
+      url = db_config.url,
     },
   }
   local request = { done = false, job = nil }
@@ -347,6 +348,7 @@ function Handler:execute_query(query, db_config, backend_config, callback)
       user = db_config.username,
       password = db_config.password,
       dbname = db_config.database,
+      url = db_config.url,
     },
   }
 
@@ -401,6 +403,7 @@ function Handler:execute_count(query, db_config, backend_config, callback)
       user = db_config.username,
       password = db_config.password,
       dbname = db_config.database,
+      url = db_config.url,
     },
   }
 
@@ -455,6 +458,7 @@ function Handler:execute_query_with_pagination(query, db_config, backend_config,
       user = db_config.username,
       password = db_config.password,
       dbname = db_config.database,
+      url = db_config.url,
     },
   }
 
@@ -514,6 +518,7 @@ function Handler:fetch_schema(db_config, backend_config, callback)
       user = db_config.username,
       password = db_config.password,
       dbname = db_config.database,
+      url = db_config.url,
     },
   }
 

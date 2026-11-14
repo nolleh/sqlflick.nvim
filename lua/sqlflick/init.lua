@@ -16,6 +16,36 @@ local pagination = require("sqlflick.pagination")
 local completion = require("sqlflick.completion")
 local statement = require("sqlflick.statement")
 local history = require("sqlflick.history")
+local connection = require("sqlflick.connection")
+
+local session_connections = {}
+local next_session_id = 0
+
+local function available_databases()
+  local databases = vim.tbl_extend("force", {}, config.opts.databases)
+  for _, db in ipairs(session_connections) do
+    table.insert(databases, db)
+  end
+  return databases
+end
+
+local function connection_exists(name, id)
+  local function matches(db)
+    return (name and db.name == name) or (id and (db.id or db.name) == id)
+  end
+  for key, value in pairs(available_databases()) do
+    if type(key) == "string" then
+      for _, db in ipairs(value) do
+        if matches(db) then
+          return true
+        end
+      end
+    elseif matches(value) then
+      return true
+    end
+  end
+  return false
+end
 
 M.selected_database = nil
 local unconfirmed_cached_database = nil
@@ -244,7 +274,7 @@ local function show_database_selector()
   vim.api.nvim_set_option_value("buftype", "nofile", { buf = search_buf })
 
   -- Build tree structure
-  local root = tree.build_tree(config.opts.databases)
+  local root = tree.build_tree(available_databases())
   local current_line = 1
   local search_term = ""
   local closing = false
@@ -457,6 +487,41 @@ local function show_database_selector()
   return search_buf, search_win, list_buf, list_win, selector_buf, selector_win
 end
 
+-- Visual imports live only in this Neovim session, outside persistent configs.
+function M.add_connection(url)
+  url = vim.trim(url)
+  local quote = url:sub(1, 1)
+  if (quote == '"' or quote == "'" or quote == "`") and url:sub(-1) == quote then
+    url = url:sub(2, -2)
+  end
+  local db, err = connection.from_url(url, "selected connection URL")
+  if not db then
+    vim.notify("SQLFlick: " .. err, vim.log.levels.WARN)
+    return
+  end
+  vim.ui.input({ prompt = "Connection name: ", default = db.type }, function(name)
+    if name == nil then
+      return
+    end
+    name = vim.trim(name)
+    if name == "" or name:find("%c") then
+      vim.notify("SQLFlick: enter a nonempty connection name without control characters", vim.log.levels.WARN)
+      return
+    end
+    if connection_exists(name) then
+      vim.notify("SQLFlick: a connection with this name already exists", vim.log.levels.WARN)
+      return
+    end
+    repeat
+      next_session_id = next_session_id + 1
+    until not connection_exists(nil, "session:" .. next_session_id)
+    db.id = "session:" .. next_session_id
+    db.name = name
+    table.insert(session_connections, db)
+    show_database_selector()
+  end)
+end
+
 -- Setup function that will be called by users
 function M.setup(opts)
   config.setup(opts)
@@ -510,7 +575,7 @@ function M.setup(opts)
 
   vim.api.nvim_create_user_command("SQLFlickHistory", function()
     require("sqlflick.history_picker").open(config.opts, function(item)
-      local db = tree.find_database_by_id(config.opts.databases, item.connection.id)
+      local db = tree.find_database_by_id(available_databases(), item.connection.id)
       if not db or db.type ~= item.connection.type or db.database ~= item.connection.database then
         vim.notify(
           "Historical connection is missing, ambiguous, or changed. Restore and review the SQL instead.",
@@ -545,13 +610,35 @@ function M.setup(opts)
 
   local selected_text = function()
     local mode = vim.api.nvim_get_mode().mode
-    local opts = {}
+    local opts = { exclusive = vim.o.selection == "exclusive" }
     -- \22 is an escaped version of <c-v>
     if mode == "v" or mode == "V" or mode == "\22" then
       opts.type = mode
     end
     return vim.fn.getregion(vim.fn.getpos("v"), vim.fn.getpos("."), opts)
   end
+
+  vim.api.nvim_create_user_command("SQLFlickAddConnection", function(opts)
+    if opts.range == 0 then
+      vim.notify("SQLFlick: select a connection URL in Visual mode first", vim.log.levels.WARN)
+      return
+    end
+    local first, last = vim.fn.getpos("'<"), vim.fn.getpos("'>")
+    local lines
+    if first[2] == opts.line1 and last[2] == opts.line2 then
+      lines = vim.fn.getregion(first, last, { type = vim.fn.visualmode(), exclusive = vim.o.selection == "exclusive" })
+    else
+      lines = vim.api.nvim_buf_get_lines(0, opts.line1 - 1, opts.line2, false)
+    end
+    M.add_connection(table.concat(lines, "\n"))
+  end, { range = true, desc = "Add a selected connection URL for this session" })
+
+  -- URLs can appear in .env, YAML, Lua, or any other file type.
+  vim.keymap.set("x", "<leader>sa", function()
+    local text = table.concat(selected_text(), "\n")
+    vim.cmd("normal! " .. string.char(27))
+    M.add_connection(text)
+  end, { silent = true, desc = "Add selected DB connection" })
 
   -- Add default key mappings for SQLFlickExecuteBuf
   local function setup_query_mappings()

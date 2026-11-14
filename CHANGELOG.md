@@ -6,6 +6,36 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-11-13
+
+### Added
+
+- Add a database picker connection from `SQFLK_DB_URL`, falling back to
+  `DATABASE_URL` only when the dedicated variable is unset or empty.
+- Infer PostgreSQL, MySQL, SQLite, Redis, and Oracle connections from their URL
+  prefixes, including supported basic JDBC forms. Preserve supported connection
+  options, including TLS and authentication settings.
+- Import a visually selected URL with `<leader>sa` or
+  `:'<,'>SQLFlickAddConnection`, name the connection, and open the database picker.
+  Imported connections remain in memory for the current Neovim session.
+- Allow environment discovery to be disabled with `database_url = false`.
+
+### Fixed
+
+- Accept file-backed SQLite URLs with a memory rollback journal while continuing
+  to reject actual in-memory database URLs.
+- Load URL parsing dependencies before plugin-manager runtime path changes so
+  environment connections work with the development loader.
+
+### Changed
+
+- Backend version `0.8.0` adds URL-based database connections. Rebuild with
+  `:SQLFlickInstall`, then run `:SQLFlickRestart` after the build completes.
+- Warn on invalid or unsupported environment URLs without falling back to a
+  different connection or including URL credentials in diagnostics.
+- Move detailed environment connection formats, options, and limitations to the
+  [Environment Connections wiki guide](https://github.com/nolleh/sqlflick.nvim/wiki/Environment-Connections).
+
 ## [0.7.2] - 2026-11-08
 
 ### Added

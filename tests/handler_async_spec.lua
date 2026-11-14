@@ -168,6 +168,16 @@ describe("Asynchronous query requests", function()
         assert.equals(1, #results) -- A late success must not resurrect a cancelled request.
       end)
 
+      it("forwards the full connection URL including TLS options", function()
+        local saved_url = db.url
+        db.url = "postgresql://app:p%40ss@localhost/app?sslmode=require&application_name=sqlflick"
+        start(method)
+        local expected = db.url
+        db.url = saved_url
+        local body = vim.fn.json_decode(jobs[1].opts.stdin)
+        assert.equals(expected, body.config.url)
+      end)
+
       it("reports timeout separately from user cancellation", function()
         start(method)
         jobs[1].on_exit({ code = 124, signal = 15, stdout = "", stderr = "process timed out" })
